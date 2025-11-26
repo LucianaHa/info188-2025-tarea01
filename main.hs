@@ -35,7 +35,7 @@ data GameState = GameState {
 type GameMonad = StateT GameState IO
 
 --------------------------------------------------------------------------------
--- 2. FUNCIONES PURAS DE LÓGICA (Similares a tu código original)
+-- 2. FUNCIONES PURAS DE LÓGICA
 --------------------------------------------------------------------------------
 
 -- Crear personaje base
@@ -127,6 +127,24 @@ accionAyudar = do
             liftIO $ putStrLn $ "Vida total combinada: " ++ show (vida pjConAliado)
         else liftIO $ putStrLn "Opción inválida, no se ha unido ningún aliado."
 
+-- Acción de ataque del lobo (modifica el estado del jugador)
+accionLoboAtacar :: GameMonad ()
+accionLoboAtacar = do
+    -- 1. Obtener el estado (Personaje y Enemigo)
+    estado <- get
+    let pj = player estado
+    let lobo = enemy estado
+
+    -- 2. Calcular el nuevo estado del jugador
+    let pjNuevo = pj { vida = vida pj - poder lobo }
+
+    -- 3. Actualizar el estado con el nuevo jugador
+    put (estado { player = pjNuevo })
+
+    -- 4. IO (Mostrar mensaje)
+    liftIO $ putStrLn $ "\n" ++ nombre lobo ++ " ataca a " ++ nombre pj ++ "!"
+    liftIO $ putStrLn $ "¡Has recibido " ++ show (poder lobo) ++ " de daño! Vida restante: " ++ show (vida pjNuevo)
+
 --------------------------------------------------------------------------------
 -- 4. BUCLE DE JUEGO (La función central que usa la Monada)
 --------------------------------------------------------------------------------
@@ -141,26 +159,38 @@ combateLoop = do
     -- 2. Verificar condiciones de fin de juego (Objetivo / Pérdida)
     if vida lobo <= 0
         then liftIO $ putStrLn "¡El lobo ha sido derrotado! Objetivo cumplido."
-        else if vida pj <= 0
-            then liftIO $ putStrLn $ nombre pj ++ " ha sido derrotado. Fin del juego."
-            else do
-                -- 3. Mostrar el menú y leer la acción
-                liftIO $ putStrLn "\n--- Turno ---"
-                liftIO $ putStrLn $ "Tu Vida: " ++ show (vida pj) ++ " | Vida Lobo: " ++ show (vida lobo)
-                liftIO $ putStrLn "Opciones: 1) Atacar | 2) Curar | 3) Pedir Ayuda | 4) Huir"
-                accion <- liftIO getLine -- liftIO saca la acción de la Monada IO
+        else do
+            -- 3. Mostrar el menú y leer la acción
+            liftIO $ putStrLn "\n--- Turno ---"
+            liftIO $ putStrLn $ "Tu Vida: " ++ show (vida pj) ++ " | Vida Lobo: " ++ show (vida lobo)
+            liftIO $ putStrLn "Opciones: 1) Atacar | 2) Curar | 3) Pedir Ayuda | 4) Huir"
+            accion <- liftIO getLine
 
-                -- 4. Ejecutar la acción elegida
-                case accion of
-                    "1" -> accionAtacar
-                    "2" -> accionCurar
-                    "3" -> accionAyudar
-                    "4" -> liftIO $ putStrLn (nombre pj ++ " decide huir. Fin del combate.") >> liftIO exitSuccess
-                    _   -> liftIO $ putStrLn "Opción no válida."
+            -- 4. Ejecutar la acción elegida del jugador
+            case accion of
+                "1" -> accionAtacar
+                "2" -> accionCurar
+                "3" -> accionAyudar
+                "4" -> liftIO $ putStrLn (nombre pj ++ " decide huir. Fin del combate.") >> liftIO exitSuccess
+                _   -> liftIO $ putStrLn "Opción no válida."
+
+            -- 5. ACCIÓN DEL ENEMIGO: Ataque del lobo.
+            if accion `elem` ["1", "2", "3"] 
+                then do
+                    -- El ataque del lobo se ejecuta sobre el ESTADO actualizado por la acción del jugador.
+                    accionLoboAtacar
+                    
+                    -- **Verificar si el jugador ha sido derrotado DESPUÉS del ataque del lobo**
+                    -- Necesitamos obtener el estado nuevamente para la nueva vida del jugador.
+                    estadoPostLobo <- get
+                    let pjPostLobo = player estadoPostLobo
+                    
+                    if vida pjPostLobo <= 0
+                        then liftIO $ putStrLn $ nombre pjPostLobo ++ " ha sido derrotado. Fin del juego."
+                        else combateLoop -- Llama recursivamente si ambos siguen vivos
                 
-                -- 5. Llamada recursiva para el siguiente turno. 
-                -- NOTA: El nuevo estado (si hubo cambio) es pasado automáticamente por StateT.
-                combateLoop
+                -- Si la acción fue huir o inválida, no hay ataque del lobo.
+                else combateLoop
 
 --------------------------------------------------------------------------------
 -- 5. MAIN
