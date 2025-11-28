@@ -7,6 +7,7 @@ import Control.Monad.State
 import Control.Monad (when, forM_)
 import qualified Data.Map as M
 import Foreign.C.Types (CInt)
+import Data.Word (Word8) 
 
 import Types
 import Config
@@ -63,30 +64,52 @@ renderEntity r tex ent cameraOffset = do
     when (entHp ent < entMaxHp ent || entAggro ent) $ do
         drawHealthBar r screenPos (entHp ent) (entMaxHp ent)
 
-render :: Game ()
-render = do
-    st <- get
-    let r = renderer st
-    let texs = assets st
-    
-    let center = V2 (windowW `div` 2) (windowH `div` 2)
-    let pCenter = V2 (screenSize `div` 2) (screenSize `div` 2)
-    let cameraOffset = entPos (player st) ^-^ center ^+^ pCenter
+-- NUEVO: Dibujar Pantalla de Título (SIMPLIFICADA)
+drawTitleScreen :: SDL.Renderer -> AssetManager -> Int -> Game ()
+drawTitleScreen r texs sel = do
+    -- 1. Dibujar Fondo (Imagen cargada, que ya contiene los botones)
+    case M.lookup "background" texs of
+        Just bgTex -> SDL.copy r bgTex Nothing Nothing -- Dibuja en toda la pantalla
+        Nothing -> do -- Si falla la carga, fondo azul
+            SDL.rendererDrawColor r SDL.$= V4 0 0 50 255 
+            SDL.clear r
 
-    -- FONDO OSCURO DE MAZMORRA (Ya no azul)
-    SDL.rendererDrawColor r SDL.$= V4 15 15 20 255 
-    SDL.clear r
-
-    case M.lookup "dungeon" texs of
-        Just texDungeon -> do
-            renderLayer r texDungeon mapaSuelo cameraOffset
-            
-            forM_ (enemies st) $ \e -> renderEntity r texDungeon e cameraOffset
-            renderEntity r texDungeon (player st) cameraOffset
-            
-        Nothing -> return ()
+    -- Nota: Ya no se dibujan botones de color, solo se usa el teclado para navegar.
 
     SDL.present r
+
+-- Función drawButton eliminada, ya no es necesaria.
+
+render :: Game ()
+render = do
+    mode <- gets gameMode
+    st <- get
+    let r = renderer st
+
+    case mode of
+        TitleScreen -> 
+            drawTitleScreen r (assets st) (menuSelection st)
+        
+        Playing -> do
+            let texs = assets st
+            let center = V2 (windowW `div` 2) (windowH `div` 2)
+            let pCenter = V2 (screenSize `div` 2) (screenSize `div` 2)
+            let cameraOffset = entPos (player st) ^-^ center ^+^ pCenter
+
+            -- FONDO OSCURO DE MAZMORRA 
+            SDL.rendererDrawColor r SDL.$= V4 15 15 20 255 
+            SDL.clear r
+
+            case M.lookup "dungeon" texs of
+                Just texDungeon -> do
+                    renderLayer r texDungeon mapaSuelo cameraOffset
+                    
+                    forM_ (enemies st) $ \e -> renderEntity r texDungeon e cameraOffset
+                    renderEntity r texDungeon (player st) cameraOffset
+                    
+                Nothing -> return ()
+
+            SDL.present r
 
   where
     renderLayer r tex matriz cameraOffset = do
@@ -99,7 +122,7 @@ render = do
                         let screenPos = worldPos ^-^ cameraOffset
                         let (V2 sx sy) = screenPos
                         
-                        -- DIBUJAR MAPA (Limpio, sin cuadros grises)
+                        -- DIBUJAR MAPA 
                         when (sx > -screenSize && sx < windowW && sy > -screenSize && sy < windowH) $ do
                             let destRect = SDL.Rectangle (P screenPos) (V2 screenSize screenSize)
                             SDL.copy r tex (Just srcRect) (Just destRect)
