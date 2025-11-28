@@ -40,34 +40,43 @@ main = do
 
     textures <- cargarRecursos r
     
-    -- POSICIÓN SEGURA (En la Sala D, a la derecha del mapa)
-    -- Tile 54, 20 es suelo seguro según el mapa que creamos.
     let startPos = V2 (54 * screenSize) (20 * screenSize)
     
+    -- JUGADOR INICIAL
     let jugador = Entity {
-        entPos = startPos, entTarget = startPos, entDir = Izquierda,
-        entIsMoving = False, entAnimFrame = 0, entAnimTimer = 0,
+        entPos = startPos, entTarget = startPos, entOrigin = startPos,
+        entDir = Izquierda, entIsMoving = False, entAnimFrame = 0, entAnimTimer = 0,
+        
         entClass = Guerrero,
         entHp = 20, entMaxHp = 20,
         entMinAtk = 6, entMaxAtk = 8,
-        entCooldown = 0, entAggro = False
+        
+        -- Nuevos campos
+        entXp = 0, entLevel = 1, entNextLevel = 100,
+        entCooldown = 0, entAggro = False,
+        entDead = False, entDeathTick = 0, entRegenTick = 0
     }
 
-    -- Un enemigo de prueba en la Sala A (Izquierda Abajo)
+    -- ENEMIGO (ORCO)
+    let orcoPos = V2 (10 * screenSize) (45 * screenSize)
     let orco = Entity {
-        entPos = V2 (10 * screenSize) (45 * screenSize), 
-        entTarget = V2 (10 * screenSize) (45 * screenSize), 
-        entDir = Abajo,
-        entIsMoving = False, entAnimFrame = 0, entAnimTimer = 0,
+        entPos = orcoPos, entTarget = orcoPos, entOrigin = orcoPos,
+        entDir = Abajo, entIsMoving = False, entAnimFrame = 0, entAnimTimer = 0,
+        
         entClass = Orco,
         entHp = 30, entMaxHp = 30,
         entMinAtk = 2, entMaxAtk = 4,
-        entCooldown = 0, entAggro = False
+        
+        -- El enemigo da 50 XP
+        entXp = 50, entLevel = 1, entNextLevel = 0,
+        entCooldown = 0, entAggro = False,
+        entDead = False, entDeathTick = 0, entRegenTick = 0
     }
 
     let estadoInicial = GameState {
         player      = jugador,
         enemies     = [orco],
+        gameLog     = ["Bienvenido a la mazmorra."], -- Log inicial
         assets      = textures,
         renderer    = r,
         shouldExit  = False

@@ -12,7 +12,6 @@ import Types
 import Config
 import Maps
 
--- Índice de Clases
 characterIndexFromClass :: Clase -> CInt
 characterIndexFromClass Guerrero = 0
 characterIndexFromClass Mago     = 1
@@ -31,7 +30,6 @@ getTileRect id
     y = row * tileSizeSource
     rect = SDL.Rectangle (P (V2 x y)) (V2 tileSizeSource tileSizeSource)
 
--- DIBUJAR BARRA DE VIDA
 drawHealthBar :: SDL.Renderer -> V2 CInt -> Int -> Int -> Game ()
 drawHealthBar r (V2 x y) hp maxHp = do
     let width = screenSize
@@ -48,7 +46,6 @@ drawHealthBar r (V2 x y) hp maxHp = do
     SDL.rendererDrawColor r SDL.$= V4 0 255 0 255
     SDL.fillRect r (Just barFg)
 
--- RENDERIZAR ENTIDAD
 renderEntity :: SDL.Renderer -> SDL.Texture -> Entity -> V2 CInt -> Game ()
 renderEntity r tex ent cameraOffset = do
     let charIndex = characterIndexFromClass (entClass ent)
@@ -59,15 +56,10 @@ renderEntity r tex ent cameraOffset = do
     let screenPos = entPos ent ^-^ cameraOffset
     let destRect = SDL.Rectangle (P screenPos) (V2 screenSize screenSize)
     
-    -- 1. DIBUJAR SPRITE
+    -- DIBUJAR SPRITE (Limpio, sin cuadros verdes)
     SDL.copy r tex (Just srcRect) (Just destRect)
     
-    -- 2. DIBUJAR CUADRO DE DEBUG (Borde Verde)
-    -- Si ves este cuadro pero no el personaje, la textura o heroStartY están mal.
-    SDL.rendererDrawColor r SDL.$= V4 0 255 0 255 -- Verde brillante
-    SDL.drawRect r (Just destRect) 
-    
-    -- 3. BARRA DE VIDA
+    -- BARRA DE VIDA (Solo si no está full o es enemigo enojado)
     when (entHp ent < entMaxHp ent || entAggro ent) $ do
         drawHealthBar r screenPos (entHp ent) (entMaxHp ent)
 
@@ -81,9 +73,8 @@ render = do
     let pCenter = V2 (screenSize `div` 2) (screenSize `div` 2)
     let cameraOffset = entPos (player st) ^-^ center ^+^ pCenter
 
-    -- FONDO AZUL (Para saber si la ventana funciona)
-    -- Si ves negro, SDL no está renderizando. Si ves azul, vamos bien.
-    SDL.rendererDrawColor r SDL.$= V4 0 0 100 255 
+    -- FONDO OSCURO DE MAZMORRA (Ya no azul)
+    SDL.rendererDrawColor r SDL.$= V4 15 15 20 255 
     SDL.clear r
 
     case M.lookup "dungeon" texs of
@@ -101,7 +92,6 @@ render = do
     renderLayer r tex matriz cameraOffset = do
         forM_ (zip [0..] matriz) $ \(y, row) -> do
             forM_ (zip [0..] row) $ \(x, tileID) -> do
-                -- DEBUG MAPA: Si el tileID es válido, intenta dibujar
                 case getTileRect tileID of
                     Nothing -> return ()
                     Just srcRect -> do
@@ -109,13 +99,7 @@ render = do
                         let screenPos = worldPos ^-^ cameraOffset
                         let (V2 sx sy) = screenPos
                         
+                        -- DIBUJAR MAPA (Limpio, sin cuadros grises)
                         when (sx > -screenSize && sx < windowW && sy > -screenSize && sy < windowH) $ do
                             let destRect = SDL.Rectangle (P screenPos) (V2 screenSize screenSize)
-                            
-                            -- Dibujar Textura
                             SDL.copy r tex (Just srcRect) (Just destRect)
-                            
-                            -- DEBUG: Si es pared (ID 7), dibuja un borde gris
-                            when (tileID == 7) $ do
-                                SDL.rendererDrawColor r SDL.$= V4 100 100 100 255
-                                SDL.drawRect r (Just destRect)
