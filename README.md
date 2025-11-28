@@ -33,9 +33,9 @@ Proyecto/
 
 Compila y Ejecuta:
 Abre la terminal en la carpeta del proyecto y ejecuta:
-
+"""
 cabal run
-
+"""
 
 La primera vez tardará unos minutos porque descargará y compilará SDL2 para Haskell.
 
