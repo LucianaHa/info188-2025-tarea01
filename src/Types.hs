@@ -1,6 +1,7 @@
 module Types where
 
 import qualified SDL
+import qualified SDL.Font -- <--- Importamos Font
 import Linear (V2)
 import Foreign.C.Types (CInt)
 import Data.Map (Map)
@@ -13,10 +14,13 @@ data Direccion = Abajo | Izquierda | Derecha | Arriba
 data Clase = Guerrero | Mago | Asesino | Orco | Esqueleto
     deriving (Show, Eq)
 
-type AssetManager = Map String SDL.Texture
+-- CAMBIO: Ahora Resources guarda Texturas y la Fuente (opcional por si falla la carga)
+data Resources = Resources {
+    rTextures :: Map String SDL.Texture,
+    rFont     :: Maybe SDL.Font.Font
+}
 
 data Entity = Entity {
-    -- Físicas
     entPos       :: V2 CInt,
     entTarget    :: V2 CInt,
     entOrigin    :: V2 CInt,
@@ -25,25 +29,17 @@ data Entity = Entity {
     entAnimFrame :: Int,
     entAnimTimer :: Word32,
     entSpeed     :: CInt,
-
-    -- Estadísticas
     entClass     :: Clase,
     entHp        :: Int,
     entMaxHp     :: Int,
     entMinAtk    :: Int,
     entMaxAtk    :: Int,
-
-    -- Progresión (XP)
     entXp        :: Int,
     entLevel     :: Int,
     entNextLevel :: Int,
-
-    -- Estado
     entCooldown  :: Word32,
     entAggro     :: Bool,
-    entPatrolTimer :: Word32, -- <--- NUEVO: Para mantener la dirección al patrullar
-
-    -- Muerte y Regen
+    entPatrolTimer :: Word32,
     entDead      :: Bool,
     entDeathTick :: Word32,
     entRegenTick :: Word32
@@ -53,7 +49,7 @@ data GameState = GameState {
     player      :: Entity,
     enemies     :: [Entity],
     gameLog     :: [String],
-    assets      :: AssetManager,
+    resources   :: Resources, -- <--- CAMBIO DE NOMBRE (assets -> resources)
     renderer    :: SDL.Renderer,
     shouldExit  :: Bool
 }
