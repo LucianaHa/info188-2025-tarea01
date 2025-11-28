@@ -10,9 +10,13 @@ loadTexture r path = SDL.Image.loadTexture r path
 
 cargarRecursos :: SDL.Renderer -> IO AssetManager
 cargarRecursos r = do
-    -- SOLO CARGAMOS EL ARCHIVO PRINCIPAL
+    -- 1. Cargar Tileset
     texDungeon <- loadTexture r "Images/textures2D/Tiles/dungeon.png"
     
+    -- 2. Cargar Fondo del Menú: USANDO LA RUTA Y EXTENSIÓN CORRECTAS
+    texBackground <- loadTexture r "Images/HUD/TitleScreen/title.jpg" 
+    
     return $ fromList 
-        [ ("dungeon", texDungeon) -- Esta textura servirá para mapa Y héroe
+        [ ("dungeon", texDungeon)
+        , ("background", texBackground) -- Guardamos con clave "background"
         ]

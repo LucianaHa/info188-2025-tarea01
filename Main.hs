@@ -41,8 +41,8 @@ main = do
     textures <- cargarRecursos r
 
     let startPos = V2 (54 * screenSize) (20 * screenSize)
-
-    -- JUGADOR INICIAL
+    
+    -- JUGADOR INICIAL (Definición ÚNICA)
     let jugador = Entity {
         entPos = startPos, entTarget = startPos, entOrigin = startPos,
         entDir = Izquierda, entIsMoving = False, entAnimFrame = 0, entAnimTimer = 0,
@@ -58,7 +58,7 @@ main = do
         entDead = False, entDeathTick = 0, entRegenTick = 0
     }
 
-    -- ENEMIGO (ORCO)
+    -- ENEMIGO (ORCO) (Definición ÚNICA)
     let orcoPos = V2 (10 * screenSize) (45 * screenSize)
     let orco = Entity {
         entPos = orcoPos, entTarget = orcoPos, entOrigin = orcoPos,
@@ -75,15 +75,18 @@ main = do
         entDead = False, entDeathTick = 0, entRegenTick = 0
     }
 
+    -- ESTADO INICIAL COMPLETO
     let estadoInicial = GameState {
         player      = jugador,
         enemies     = [orco],
         gameLog     = ["Bienvenido a la mazmorra."],
         assets      = textures,
         renderer    = r,
-        shouldExit  = False
+        shouldExit  = False,
+        gameMode    = TitleScreen, -- Inicializa en la pantalla de título
+        menuSelection = 0          -- Botón "Jugar" seleccionado por defecto
     }
-
+    
     runStateT gameLoop estadoInicial
 
     SDL.destroyRenderer r
