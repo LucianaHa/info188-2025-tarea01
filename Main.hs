@@ -18,11 +18,11 @@ gameLoop :: Game ()
 gameLoop = do
     ticks <- SDL.ticks
     events <- map SDL.eventPayload <$> SDL.pollEvents
-    
+
     handleEvents events ticks
     updateGame ticks
     render
-    
+
     exit <- gets shouldExit
     unless exit $ do
         liftIO $ SDL.delay 16
@@ -39,21 +39,22 @@ main = do
     r <- SDL.createRenderer window (-1) SDL.defaultRenderer
 
     textures <- cargarRecursos r
-    
+
     let startPos = V2 (54 * screenSize) (20 * screenSize)
-    
+
     -- JUGADOR INICIAL
     let jugador = Entity {
         entPos = startPos, entTarget = startPos, entOrigin = startPos,
         entDir = Izquierda, entIsMoving = False, entAnimFrame = 0, entAnimTimer = 0,
-        
+        entSpeed = 8,
+
         entClass = Guerrero,
         entHp = 20, entMaxHp = 20,
         entMinAtk = 6, entMaxAtk = 8,
-        
-        -- Nuevos campos
+
         entXp = 0, entLevel = 1, entNextLevel = 100,
         entCooldown = 0, entAggro = False,
+        entPatrolTimer = 0, -- <--- NUEVO
         entDead = False, entDeathTick = 0, entRegenTick = 0
     }
 
@@ -62,21 +63,22 @@ main = do
     let orco = Entity {
         entPos = orcoPos, entTarget = orcoPos, entOrigin = orcoPos,
         entDir = Abajo, entIsMoving = False, entAnimFrame = 0, entAnimTimer = 0,
-        
+        entSpeed = 3,
+
         entClass = Orco,
         entHp = 30, entMaxHp = 30,
         entMinAtk = 2, entMaxAtk = 4,
-        
-        -- El enemigo da 50 XP
+
         entXp = 50, entLevel = 1, entNextLevel = 0,
         entCooldown = 0, entAggro = False,
+        entPatrolTimer = 0, -- <--- NUEVO
         entDead = False, entDeathTick = 0, entRegenTick = 0
     }
 
     let estadoInicial = GameState {
         player      = jugador,
         enemies     = [orco],
-        gameLog     = ["Bienvenido a la mazmorra."], -- Log inicial
+        gameLog     = ["Bienvenido a la mazmorra."],
         assets      = textures,
         renderer    = r,
         shouldExit  = False

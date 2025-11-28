@@ -21,16 +21,21 @@ distL1 :: V2 CInt -> V2 CInt -> CInt
 distL1 (V2 x1 y1) (V2 x2 y2) = abs (x1 - x2) + abs (y1 - y2)
 
 randomRango :: Int -> Int -> Word32 -> Int
-randomRango minVal maxVal seed = 
+randomRango minVal maxVal seed =
     let r = fromIntegral (seed `mod` 100)
         range = maxVal - minVal + 1
     in minVal + (r `mod` range)
 
--- NUEVO: Agregar mensaje al Log
 agregarLog :: String -> Game ()
 agregarLog msg = do
-    liftIO $ putStrLn msg -- Seguimos imprimiendo en consola por si acaso
-    modify $ \s -> s { gameLog = take 10 (msg : gameLog s) } -- Guardamos los últimos 10
+    liftIO $ putStrLn msg
+    modify $ \s -> s { gameLog = take 10 (msg : gameLog s) }
+
+getDirVec :: Direccion -> V2 CInt
+getDirVec Arriba    = V2 0 (-1)
+getDirVec Abajo     = V2 0 1
+getDirVec Izquierda = V2 (-1) 0
+getDirVec Derecha   = V2 1 0
 
 -- ==========================================
 -- 2. COMBATE Y XP
@@ -40,60 +45,50 @@ atacar :: Word32 -> Game ()
 atacar ticks = do
     st <- get
     let pj = player st
-    
+
     when (ticks > entCooldown pj && not (entDead pj)) $ do
-        let dirVec = case entDir pj of
-                        Arriba    -> V2 0 (-1)
-                        Abajo     -> V2 0 1
-                        Izquierda -> V2 (-1) 0
-                        Derecha   -> V2 1 0
+        let dirVec = getDirVec (entDir pj)
         let zonaAtaque = entPos pj + (screenSize *^ dirVec)
-        
+
         let enemigos = enemies st
-        -- Solo atacamos enemigos VIVOS
         let enemigoGolpeado = find (\e -> entPos e == zonaAtaque && not (entDead e)) enemigos
-        
+
         case enemigoGolpeado of
             Nothing -> return ()
             Just enemigo -> do
                 let dano = randomRango (entMinAtk pj) (entMaxAtk pj) ticks
                 let nuevaVida = max 0 (entHp enemigo - dano)
                 let estaMuerto = nuevaVida == 0
-                
-                -- Actualizar Enemigo (Daño, Aggro o Muerte)
+
                 let enemigoActualizado = if estaMuerto
                         then enemigo { entHp = 0, entDead = True, entDeathTick = ticks, entAggro = False }
-                        else enemigo { entHp = nuevaVida, entAggro = True }
-                
-                -- Actualizar Lista
+                        else enemigo { entHp = nuevaVida, entAggro = True } -- ¡Se enoja si le pegas!
+
                 let otros = filter (/= enemigo) enemigos
                 let nuevaLista = enemigoActualizado : otros
-                
-                -- Actualizar Jugador (Cooldown y XP si mató)
-                let (pjXp, pjLvlMsg) = if estaMuerto 
+
+                let (pjXp, pjLvlMsg) = if estaMuerto
                                        then (ganarXP pj (entXp enemigo))
                                        else (pj, "")
-                                       
+
                 let pjFinal = pjXp { entCooldown = ticks + 500 }
-                
+
                 modify $ \s -> s { player = pjFinal, enemies = nuevaLista }
-                
+
                 agregarLog $ "Golpeaste por " ++ show dano ++ " dmg."
                 when estaMuerto $ agregarLog $ "¡Enemigo derrotado! +" ++ show (entXp enemigo) ++ " XP."
                 when (pjLvlMsg /= "") $ agregarLog pjLvlMsg
 
--- Sistema de Nivel
 ganarXP :: Entity -> Int -> (Entity, String)
 ganarXP ent xpGanada =
     let nuevaXp = entXp ent + xpGanada
         necesaria = entNextLevel ent
     in if nuevaXp >= necesaria
-       then -- LEVEL UP!
-            (ent { entXp = nuevaXp - necesaria
+       then (ent { entXp = nuevaXp - necesaria
                  , entLevel = entLevel ent + 1
                  , entNextLevel = floor (fromIntegral necesaria * 1.5)
                  , entMaxHp = entMaxHp ent + 5
-                 , entHp = entMaxHp ent + 5 -- Curar al subir nivel
+                 , entHp = entMaxHp ent + 5
                  , entMinAtk = entMinAtk ent + 1
                  , entMaxAtk = entMaxAtk ent + 1
                  }
@@ -101,82 +96,136 @@ ganarXP ent xpGanada =
        else (ent { entXp = nuevaXp }, "")
 
 -- ==========================================
--- 3. LOGICA DE JUEGO (REGEN, RESPAWN, IA)
+-- 3. LOGICA DE JUEGO (IA MEJORADA)
 -- ==========================================
 
--- Regeneración pasiva de vida
 regenerarVida :: Entity -> Word32 -> Entity
 regenerarVida ent ticks =
     if not (entDead ent) && entHp ent < entMaxHp ent && ticks > entRegenTick ent + regenTime
     then ent { entHp = min (entMaxHp ent) (entHp ent + 1), entRegenTick = ticks }
     else ent
 
--- Lógica de Enemigos (IA + Respawn)
 actualizarEnemigos :: Word32 -> Game ()
 actualizarEnemigos ticks = do
     stInicial <- get
     let listaEnemigos = enemies stInicial
-    let pj = player stInicial -- Leemos el jugador inicial para cálculos de distancia
-    
+    let pj = player stInicial
+
     nuevosEnemigos <- forM listaEnemigos $ \e -> do
         if entDead e
         then do
-            -- LOGICA DE RESPAWN
             if ticks > entDeathTick e + respawnTime
             then return e { entHp = entMaxHp e, entDead = False, entPos = entOrigin e, entAggro = False }
-            else return e -- Sigue muerto
+            else return e
         else do
-            -- LOGICA DE IA (Solo si está vivo)
-            -- 1. Regenerar
             let eRegen = regenerarVida e ticks
-            
-            -- 2. Perseguir/Atacar si tiene Aggro
-            if entAggro eRegen
+            let curr = entPos eRegen
+            let dest = entPos pj
+            let dist = distL1 curr dest
+
+            -- 1. DETECCION DE AGGRO
+            let tieneAggro = dist < aggroRange
+            let eConEstado = eRegen { entAggro = tieneAggro }
+
+            if tieneAggro
             then do
-                let curr = entPos eRegen
-                let dest = entPos pj
+                -- === MODO PERSECUCIÓN (CHASE) ===
                 let diff = dest - curr
-                let dist = distL1 curr dest
                 let (V2 dx dy) = diff
 
-                if dist <= screenSize
+                -- ¿Está en rango de ataque?
+                if dist <= attackRange + (screenSize `div` 2) -- Un poco de holgura
                 then do
-                    -- ATACAR
-                    when (ticks > entCooldown eRegen) $ do
-                        stCurr <- get -- Obtenemos estado actual para dañar al jugador real
+                    -- ATAQUE CONTINUO
+                    if ticks > entCooldown eConEstado
+                    then do
+                        stCurr <- get
                         let pjCurr = player stCurr
-                        let dano = randomRango (entMinAtk eRegen) (entMaxAtk eRegen) ticks
+                        let dano = randomRango (entMinAtk eConEstado) (entMaxAtk eConEstado) ticks
                         let nuevaVidaPj = max 0 (entHp pjCurr - dano)
-                        
+
                         modify $ \s -> s { player = pjCurr { entHp = nuevaVidaPj } }
-                        agregarLog $ "¡Te golpearon! -" ++ show dano ++ " HP"
-                    
-                    return eRegen { entCooldown = ticks + 1000 }
+                        agregarLog $ "¡El enemigo te ataca! -" ++ show dano ++ " HP"
+
+                        -- Reseteamos cooldown para atacar de nuevo en X segundos
+                        return eConEstado { entCooldown = ticks + enemyAttackInterval }
+                    else
+                        -- En enfriamiento, espera
+                        return eConEstado
                 else do
-                    -- MOVER (Solo si no está atacando/moviéndose)
-                    if not (entIsMoving eRegen)
+                    -- MOVERSE HACIA EL JUGADOR
+                    if not (entIsMoving eConEstado)
                     then do
                         let stepX = if dx > 0 then V2 1 0 else V2 (-1) 0
                         let stepY = if dy > 0 then V2 0 1 else V2 0 (-1)
-                        let moveDir = if abs dx > abs dy then stepX else stepY
-                        let nextPos = curr + (screenSize *^ moveDir)
-                        
-                        -- Chequear colisiones
-                        let chocaEnt = chocaConEntidad nextPos (enemies stInicial) || nextPos == entPos pj
-                        if not (esMuro nextPos) && not chocaEnt
-                            then return eRegen { entTarget = nextPos, entIsMoving = True }
-                            else return eRegen
-                    else return eRegen -- Ya se está moviendo
-            else return eRegen -- No tiene aggro
+                        let moveDirVec = if abs dx > abs dy then stepX else stepY
 
-    -- Actualizar físicas de movimiento de los enemigos vivos y moviéndose
+                        -- Actualizamos la dirección visual también
+                        let newDir = vecToDir moveDirVec
+
+                        let nextPos = curr + (screenSize *^ moveDirVec)
+                        let chocaEnt = chocaConEntidad nextPos (enemies stInicial) || nextPos == entPos pj
+
+                        if not (esMuro nextPos) && not chocaEnt
+                            then return eConEstado { entTarget = nextPos, entIsMoving = True, entDir = newDir }
+                            else return eConEstado
+                    else return eConEstado
+            else do
+                -- === MODO PATRULLA (IDLE MEJORADO) ===
+                -- Si ya se está moviendo (animación), dejar que termine
+                if entIsMoving eConEstado
+                then return eConEstado
+                else do
+                    -- ¿Seguimos caminando en la misma dirección?
+                    if ticks < entPatrolTimer eConEstado
+                    then do
+                        -- Intentar dar otro paso en la dirección actual
+                        let dirVec = getDirVec (entDir eConEstado)
+                        let nextPos = curr + (screenSize *^ dirVec)
+                        let chocaEnt = chocaConEntidad nextPos (enemies stInicial) || nextPos == entPos pj
+
+                        if not (esMuro nextPos) && not chocaEnt
+                        then return eConEstado { entTarget = nextPos, entIsMoving = True }
+                        else
+                            -- ¡Choque! Cambiar de plan inmediatamente
+                            return eConEstado { entPatrolTimer = 0 }
+                    else do
+                        -- El temporizador venció, elegir nueva acción
+                        -- 20% probabilidad de quedarse quieto un rato, 80% de caminar
+                        let accion = randomRango 0 10 (ticks + fromIntegral (entHp eConEstado))
+
+                        if accion > 2
+                        then do
+                            -- ELEGIR NUEVA DIRECCIÓN
+                            let dirRnd = randomRango 0 3 (ticks * 3)
+                            let newDir = case dirRnd of
+                                            0 -> Arriba
+                                            1 -> Abajo
+                                            2 -> Izquierda
+                                            _ -> Derecha
+
+                            -- Caminar en esta dirección por 1 a 3 segundos
+                            let tiempoCaminar = randomRango 1000 3000 ticks
+
+                            return eConEstado { entDir = newDir, entPatrolTimer = ticks + fromIntegral tiempoCaminar }
+                        else do
+                            -- Quedarse quieto un ratito (0.5 a 1.5 seg)
+                            let tiempoEspera = randomRango 500 1500 ticks
+                            return eConEstado { entPatrolTimer = ticks + fromIntegral tiempoEspera }
+
+    -- Actualizar física de movimiento
     enemigosMovidos <- mapM (\e -> if entIsMoving e && not (entDead e) then updateEntityMovement e else return e) nuevosEnemigos
-    
+
     modify $ \s -> s { enemies = enemigosMovidos }
 
--- Colisiones
+vecToDir :: V2 CInt -> Direccion
+vecToDir (V2 0 (-1)) = Arriba
+vecToDir (V2 0 1)    = Abajo
+vecToDir (V2 (-1) 0) = Izquierda
+vecToDir _           = Derecha
+
 esMuro :: V2 CInt -> Bool
-esMuro (V2 pixelX pixelY) = 
+esMuro (V2 pixelX pixelY) =
     let x = fromIntegral (pixelX `div` screenSize)
         y = fromIntegral (pixelY `div` screenSize)
         fuera = y < 0 || y >= length mapaSuelo || x < 0 || x >= length (head mapaSuelo)
@@ -185,20 +234,20 @@ esMuro (V2 pixelX pixelY) =
 chocaConEntidad :: V2 CInt -> [Entity] -> Bool
 chocaConEntidad pos ents = any (\e -> entPos e == pos && not (entDead e)) ents
 
--- Movimiento Suave
 updateEntityMovement :: Entity -> Game Entity
 updateEntityMovement e = do
     let curr = entPos e
     let dest = entTarget e
     let diff = dest ^-^ curr
     let dist = distL1 curr dest
-    
-    if dist <= walkSpeed
+    let speed = entSpeed e
+
+    if dist <= speed
         then return e { entPos = dest, entIsMoving = False }
         else do
             let (V2 dx dy) = diff
             let signumVec = V2 (signum dx) (signum dy)
-            let step = walkSpeed *^ signumVec
+            let step = speed *^ signumVec
             return e { entPos = curr + step }
 
 -- ==========================================
@@ -231,8 +280,8 @@ handleEvents events ticks = do
     isQuitEvent _ = False
     isSpaceKey (SDL.KeyboardEvent k) = SDL.keyboardEventKeyMotion k == SDL.Pressed && SDL.keysymKeycode (SDL.keyboardEventKeysym k) == SDL.KeycodeSpace
     isSpaceKey _ = False
-    checkInput (vec, found) (SDL.KeyboardEvent k) 
-        | SDL.keyboardEventKeyMotion k == SDL.Pressed = 
+    checkInput (vec, found) (SDL.KeyboardEvent k)
+        | SDL.keyboardEventKeyMotion k == SDL.Pressed =
             case SDL.keysymKeycode (SDL.keyboardEventKeysym k) of
                 SDL.KeycodeUp -> (V2 0 (-1), True); SDL.KeycodeDown -> (V2 0 1, True); SDL.KeycodeLeft -> (V2 (-1) 0, True); SDL.KeycodeRight -> (V2 1 0, True); _ -> (vec, found)
     checkInput acc _ = acc
@@ -241,13 +290,11 @@ handleEvents events ticks = do
 updateGame :: Word32 -> Game ()
 updateGame ticks = do
     st <- get
-    
-    -- 1. Actualizar Jugador (Movimiento + Regen)
+
     let pj = player st
     pjMovido <- if entIsMoving pj then updateEntityMovement pj else return pj
     let pjRegen = regenerarVida pjMovido ticks
-    
+
     modify $ \s -> s { player = pjRegen }
-    
-    -- 2. Actualizar Enemigos
+
     actualizarEnemigos ticks
