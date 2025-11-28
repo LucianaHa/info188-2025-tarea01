@@ -2,17 +2,17 @@
 Juego Haskell
 
 instalar:
-"""
+```
 sudo apt update
 sudo apt install libsdl2-dev libsdl2-image-dev libsdl2-ttf-dev libsdl2-mixer-dev
 sudo apt install ghc libghc-mtl-dev
-"""
+```
 
 Cómo ejecutar tu RPG Gráfico en Linux
 
 Prepara las carpetas:
 Asegúrate de que tu carpeta de proyecto tenga esta estructura EXACTA para que el código encuentre las imágenes de prueba. (Puedes usar cualquier imagen .png que tengas, solo renómbrala).
-
+```
 Proyecto/
 ├── haskirpg.cabal
 ├── Main.hs
@@ -29,7 +29,7 @@ Proyecto/
         │   └── hero_walk.png
         └── Tiles/
             └── grass.png
-
+```
 
 Compila y Ejecuta:
 Abre la terminal en la carpeta del proyecto y ejecuta:
@@ -134,11 +134,11 @@ Pasos según gemini:
 
 Ahora que tienes la **Monada State** que controla los *números y estados*, el siguiente paso (cuando integremos SDL2) será crear una función `render` que sea "solo lectura":
 
-###PRompt y Respuesta gemini del uso de monada
+## PRompt y Respuesta gemini del uso de monada
 Existira una forma de mostrar mas implicito este uso de GameState? La verdad nunca termine de entender bien que es una monada podrías empezar por ahi? y por que GameState es una monada? donde esta declarado eso? o al comportarse como monada esta implicito que lo es
 
 R.
-"""
+```
 Esta es probablemente la barrera más grande al aprender Haskell, así que vamos a romperla en pedacitos digeribles.
 
 Para entender esto, olvida la palabra "Monada" por un segundo. Pensemos en **patrones de diseño**.
@@ -171,7 +171,7 @@ Mira esta línea en tu código:
 
 ```haskell
 type Game = StateT GameState IO
-```
+
 
   * **`GameState`**: Es la libreta de notas (Datos: posición, vida, etc.).
   * **`StateT`**: Es el **mayordomo invisible** que lleva la libreta.
@@ -186,7 +186,7 @@ Dentro de esa librería, alguien muy inteligente escribió algo como esto (simpl
 instance Monad (State s) where
     return x = ...
     (>>=)    = ...
-```
+
 
 Al hacer `import Control.Monad.State`, automáticamente obtienes el "carnet de Mónada" para `StateT`.
 
@@ -208,7 +208,7 @@ moverYAnimar = do
     moverPersonaje    -- 1. Modifica posición
     actualizarFrame   -- 2. Modifica frame
     render            -- 3. Usa los datos modificados
-```
+
 
  Versión "Desazucarada" (Lo que Haskell ve realmente)
 
@@ -222,7 +222,7 @@ moverYAnimar =
             render
         )
     )
-```
+
 
  Versión "Pesadilla" (Sin usar la Mónada State)
 
@@ -234,7 +234,7 @@ moverYAnimar estado1 =
     let (resultado1, estado2) = moverPersonaje estado1
     in let (resultado2, estado3) = actualizarFrame estado2
        in render estado3
-```
+
 
 **¿Ves la diferencia?**
 
@@ -270,7 +270,7 @@ beberPocion = do
     -- 3. Efecto visual (IO)
     liftIO $ putStrLn "¡Glu glu glu! Recuperaste vida."
 ```
-"""
+
 
 ### Resumen
 
