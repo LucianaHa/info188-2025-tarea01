@@ -21,13 +21,22 @@ loadFontSafe path size = do
 
 cargarRecursos :: SDL.Renderer -> IO Resources
 cargarRecursos r = do
+    -- 1. Cargar Tileset
     texDungeon <- loadTexture r "Images/textures2D/Tiles/dungeon.png"
 
-    -- CAMBIO: Usamos tamaño 12 y buscamos la fuente específica
+    -- 2. Cargar Fondo del Menú (Del cambio entrante)
+    -- Asegúrate de tener esta imagen o el juego podría fallar al intentar dibujarla si la llamas
+    texBackground <- loadTexture r "Images/HUD/TitleScreen/title.jpg"
+
+    -- 3. Cargar Fuente (De tu código HEAD)
     -- ¡Asegúrate de que el archivo se llame 'PressStart2P.ttf' en la carpeta 'assets'!
     miFuente <- loadFontSafe "assets/PressStart2P.ttf" 12
 
+    -- 4. Retornar la estructura Resources completa
     return $ Resources
-        { rTextures = fromList [ ("dungeon", texDungeon) ]
+        { rTextures = fromList
+            [ ("dungeon", texDungeon)
+            , ("background", texBackground) -- Agregamos el fondo al mapa
+            ]
         , rFont     = miFuente
         }
