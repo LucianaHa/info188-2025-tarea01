@@ -9,7 +9,7 @@ import Data.Word (Word32)
 import Foreign.C.Types (CInt)
 import Data.List (find)
 import Linear.Affine (Point(..)) 
-import Config -- Asegúrate de que AggroRange, etc. estén en Config.hs si son usados.
+import Config 
 
 import Types
 import Config
@@ -17,6 +17,7 @@ import Maps
 
 -- ==========================================
 -- 1. UTILIDADES Y CONSTANTES DE MENÚ
+-- ... (distL1, randomRango, agregarLog, getDirVec, btnW, etc. quedan iguales)
 -- ==========================================
 
 distL1 :: V2 CInt -> V2 CInt -> CInt
@@ -33,22 +34,19 @@ agregarLog msg = do
     liftIO $ putStrLn msg
     modify $ \s -> s { gameLog = take 10 (msg : gameLog s) }
 
--- CÓDIGO COLABORADOR: Función auxiliar para obtener V2 desde Direccion
 getDirVec :: Direccion -> V2 CInt
 getDirVec Arriba    = V2 0 (-1)
 getDirVec Abajo     = V2 0 1
 getDirVec Izquierda = V2 (-1) 0
 getDirVec Derecha   = V2 1 0
 
--- TU CÓDIGO: Definición de las áreas de clic
 btnW, btnH, btnYJugar, btnYSalir, btnX :: CInt
-btnW      = 405 -- Ancho ajustado por el usuario
-btnH      = 112 -- Alto ajustado por el usuario
+btnW      = 405 
+btnH      = 112 
 btnX      = (windowW - btnW) `div` 2
 btnYJugar = windowH `div` 2 - 270
 btnYSalir = windowH `div` 2 - 145
 
--- TU CÓDIGO: Comprueba si la posición está dentro de un área rectangular
 isClickInside :: V2 CInt -> CInt -> CInt -> CInt -> CInt -> Bool
 isClickInside (V2 clickX clickY) rectX rectY rectW rectH = 
     clickX >= rectX && clickX <= rectX + rectW &&
@@ -56,6 +54,7 @@ isClickInside (V2 clickX clickY) rectX rectY rectW rectH =
 
 -- ==========================================
 -- 2. COMBATE Y XP
+-- ... (atacar y ganarXP quedan iguales)
 -- ==========================================
 atacar :: Word32 -> Game ()
 atacar ticks = do
@@ -63,7 +62,7 @@ atacar ticks = do
     let pj = player st
 
     when (ticks > entCooldown pj && not (entDead pj)) $ do
-        let dirVec = getDirVec (entDir pj) -- <--- CÓDIGO COLABORADOR (Usando getDirVec)
+        let dirVec = getDirVec (entDir pj) 
         let zonaAtaque = entPos pj + (screenSize *^ dirVec)
 
         let enemigos = enemies st
@@ -78,12 +77,11 @@ atacar ticks = do
 
                 let enemigoActualizado = if estaMuerto
                         then enemigo { entHp = 0, entDead = True, entDeathTick = ticks, entAggro = False }
-                        else enemigo { entHp = nuevaVida, entAggro = True } -- ¡Se enoja si le pegas!
+                        else enemigo { entHp = nuevaVida, entAggro = True } 
 
                 let otros = filter (/= enemigo) enemigos
                 let nuevaLista = enemigoActualizado : otros
                 
-                -- CÓDIGO FINAL (Mantenemos la corrección de estaMuerto)
                 let (pjXp, pjLvlMsg) = if estaMuerto
                                        then (ganarXP pj (entXp enemigo))
                                        else (pj, "")
@@ -124,6 +122,28 @@ regenerarVida ent ticks =
     then ent { entHp = min (entMaxHp ent) (entHp ent + 1), entRegenTick = ticks }
     else ent
 
+-- NUEVA FUNCIÓN AUXILIAR: Avanzar el frame de animación de cualquier entidad
+updateEntityAnimation :: Entity -> Word32 -> Entity
+updateEntityAnimation ent ticks = 
+    let 
+        -- Velocidad de animación: 150ms por frame
+        animSpeed = 150
+        -- El frame de descanso es el 1 (el centro)
+        idleFrame = 1
+        
+        -- Si se está moviendo Y es hora de actualizar el frame
+        (newFrame, newTimer) = 
+            if entIsMoving ent && ticks > entAnimTimer ent + animSpeed
+            then 
+                ((entAnimFrame ent + 1) `mod` fromIntegral heroFramesPerDirection, ticks)
+            else if not (entIsMoving ent) 
+            then 
+                (idleFrame, entAnimTimer ent) -- Si está quieto, forzar al frame de descanso
+            else 
+                (entAnimFrame ent, entAnimTimer ent)
+    in ent { entAnimFrame = newFrame, entAnimTimer = newTimer }
+
+
 actualizarEnemigos :: Word32 -> Game ()
 actualizarEnemigos ticks = do
     stInicial <- get
@@ -131,32 +151,31 @@ actualizarEnemigos ticks = do
     let pj = player stInicial
 
     nuevosEnemigos <- forM listaEnemigos $ \e -> do
-        if entDead e
+        let eAnim = updateEntityAnimation e ticks -- <--- APLICAR ANIMACIÓN PRIMERO
+        
+        if entDead eAnim
         then do
-            if ticks > entDeathTick e + respawnTime
-            then return e { entHp = entMaxHp e, entDead = False, entPos = entOrigin e, entAggro = False }
-            else return e
+            if ticks > entDeathTick eAnim + respawnTime
+            then return eAnim { entHp = entMaxHp eAnim, entDead = False, entPos = entOrigin eAnim, entAggro = False }
+            else return eAnim
         else do
-            let eRegen = regenerarVida e ticks
+            let eRegen = regenerarVida eAnim ticks -- Regen sobre el sprite animado
             let curr = entPos eRegen
             let dest = entPos pj
             let dist = distL1 curr dest
-
-            -- 1. DETECCION DE AGGRO (Esta lógica usa la nueva IA del colaborador)
-            -- Asegúrate de que aggroRange y enemyAttackInterval estén en Config.hs
+            
+            -- ... (Resto de la lógica de IA y Movimiento) ...
+            
             let tieneAggro = dist < aggroRange
             let eConEstado = eRegen { entAggro = tieneAggro }
 
             if tieneAggro
             then do
-                -- === MODO PERSECUCIÓN (CHASE) ===
                 let diff = dest - curr
                 let (V2 dx dy) = diff
 
-                -- ¿Está en rango de ataque?
                 if dist <= attackRange + (screenSize `div` 2)
                 then do
-                    -- ATAQUE CONTINUO
                     if ticks > entCooldown eConEstado
                     then do
                         stCurr <- get
@@ -171,7 +190,6 @@ actualizarEnemigos ticks = do
                     else
                         return eConEstado
                 else do
-                    -- MOVERSE HACIA EL JUGADOR
                     if not (entIsMoving eConEstado)
                     then do
                         let stepX = if dx > 0 then V2 1 0 else V2 (-1) 0
@@ -188,7 +206,6 @@ actualizarEnemigos ticks = do
                             else return eConEstado
                     else return eConEstado
             else do
-                -- === MODO PATRULLA (IDLE MEJORADO) ===
                 if entIsMoving eConEstado
                 then return eConEstado
                 else do
@@ -207,7 +224,6 @@ actualizarEnemigos ticks = do
 
                         if accion > 2
                         then do
-                            -- ELEGIR NUEVA DIRECCIÓN
                             let dirRnd = randomRango 0 3 (ticks * 3)
                             let newDir = case dirRnd of
                                             0 -> Arriba
@@ -219,11 +235,9 @@ actualizarEnemigos ticks = do
 
                             return eConEstado { entDir = newDir, entPatrolTimer = ticks + fromIntegral tiempoCaminar }
                         else do
-                            -- Quedarse quieto un ratito (0.5 a 1.5 seg)
                             let tiempoEspera = randomRango 500 1500 ticks
                             return eConEstado { entPatrolTimer = ticks + fromIntegral tiempoEspera }
 
-    -- Actualizar física de movimiento
     enemigosMovidos <- mapM (\e -> if entIsMoving e && not (entDead e) then updateEntityMovement e else return e) nuevosEnemigos
 
     modify $ \s -> s { enemies = enemigosMovidos }
@@ -250,14 +264,14 @@ updateEntityMovement e = do
     let dest = entTarget e
     let diff = dest ^-^ curr
     let dist = distL1 curr dest
-    let speed = entSpeed e -- <--- CÓDIGO COLABORADOR (Usando la nueva variable de velocidad)
+    let speed = entSpeed e 
 
     if dist <= speed
         then return e { entPos = dest, entIsMoving = False }
         else do
             let (V2 dx dy) = diff
             let signumVec = V2 (signum dx) (signum dy)
-            let step = speed *^ signumVec -- <--- CÓDIGO COLABORADOR (Usando speed)
+            let step = speed *^ signumVec 
             return e { entPos = curr + step }
 -- ==========================================
 
@@ -271,45 +285,36 @@ isQuitEvent SDL.QuitEvent = True
 isQuitEvent (SDL.KeyboardEvent k) = SDL.keyboardEventKeyMotion k == SDL.Pressed && SDL.keysymKeycode (SDL.keyboardEventKeysym k) == SDL.KeycodeQ
 isQuitEvent _ = False
 
--- NUEVO: Comprueba si es un clic izquierdo del ratón
 isLeftMouseClick :: SDL.EventPayload -> Bool
 isLeftMouseClick (SDL.MouseButtonEvent m) = 
     SDL.mouseButtonEventMotion m == SDL.Pressed && SDL.mouseButtonEventButton m == SDL.ButtonLeft
 isLeftMouseClick _ = False
 
--- Lógica para la PANTALLA DE TÍTULO (Manejo de clic)
 handleTitleEvents :: [SDL.EventPayload] -> Game ()
 handleTitleEvents events = do
-    -- Manejo del evento de cerrar ventana (QuitEvent)
     let quit = any isQuitEvent events
     when quit $ modify $ \s -> s { shouldExit = True }
 
-    -- Lógica de Clic del Ratón (Botón Jugar/Salir)
     let mouseClick = find isLeftMouseClick events
     case mouseClick of
         Just (SDL.MouseButtonEvent m) -> do
-            -- Desestructurar el V2 y convertir a CInt
             let (P (V2 rawX rawY)) = SDL.mouseButtonEventPos m
             let clickPos = V2 (fromIntegral rawX) (fromIntegral rawY)
             
-            -- Verificar JUGAR
             if isClickInside clickPos btnX btnYJugar btnW btnH
             then do 
                 agregarLog "¡Partida Iniciada por clic!"
                 modify $ \s -> s { gameMode = Playing }
             
-            -- Verificar SALIR
             else if isClickInside clickPos btnX btnYSalir btnW btnH
             then do 
                 modify $ \s -> s { shouldExit = True }
             else return ()
 
-        -- Si no hay clic, la lógica de teclado anterior (flechas/enter) queda INACTIVA.
         Nothing -> return ()
         
-        _ -> return () -- Para otros eventos
+        _ -> return () 
 
--- Lógica para el MODO JUGANDO (Movimiento y ataque)
 handlePlayingEvents :: [SDL.EventPayload] -> Word32 -> Game ()
 handlePlayingEvents events ticks = do
     st <- get
@@ -352,16 +357,17 @@ handleEvents events ticks = do
 
 updateGame :: Word32 -> Game ()
 updateGame ticks = do
-    mode <- gets gameMode -- <--- CÓDIGO FINAL (Usa la verificación de modo)
+    mode <- gets gameMode
     when (mode == Playing) $ do 
         st <- get
         
-        -- 1. Actualizar Jugador (Movimiento + Regen)
+        -- 1. Actualizar Jugador (Movimiento + Regen + Animación)
         let pj = player st
         pjMovido <- if entIsMoving pj then updateEntityMovement pj else return pj
         let pjRegen = regenerarVida pjMovido ticks
+        let pjAnim = updateEntityAnimation pjRegen ticks -- Usar la nueva función auxiliar
         
-        modify $ \s -> s { player = pjRegen }
+        modify $ \s -> s { player = pjAnim }
         
         -- 2. Actualizar Enemigos
         actualizarEnemigos ticks
