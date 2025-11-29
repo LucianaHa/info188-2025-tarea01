@@ -22,7 +22,7 @@ characterIndexFromClass Asesino  = 5
 characterIndexFromClass Orco     = 3
 characterIndexFromClass Esqueleto = 4
 characterIndexFromClass Zombie    = 4
-characterIndexFromClass Vaca      = 4 -- Placeholder
+characterIndexFromClass Vaca      = 4
 
 getTileRect :: Int -> Maybe (SDL.Rectangle CInt)
 getTileRect id
@@ -113,7 +113,7 @@ renderEntity r texs ent cameraOffset = do
                                     Guerrero -> ("hero", entAnimFrame ent)
                                     Orco     -> ("ogre", entAnimFrame ent)
                                     Zombie   -> ("zombie", entAnimFrame ent)
-                                    Vaca     -> ("cow", entAnimFrame ent) -- NUEVO
+                                    Vaca     -> ("cow", entAnimFrame ent)
                                     _        -> ("dungeon", fromIntegral (characterIndexFromClass entClass'))
 
     let spriteSize = if texKey == "dungeon" then tileSizeSource else heroSize
@@ -164,6 +164,16 @@ drawTitleScreen r texs sel = do
             SDL.clear r
     SDL.present r
 
+-- NUEVO: Dibujar Pantalla de Game Over
+drawGameOverScreen :: SDL.Renderer -> M.Map String SDL.Texture -> Game ()
+drawGameOverScreen r texs = do
+    case M.lookup "gameover" texs of
+        Just bgTex -> SDL.copy r bgTex Nothing Nothing
+        Nothing -> do
+            SDL.rendererDrawColor r SDL.$= V4 50 0 0 255 -- Fondo rojo oscuro si falla
+            SDL.clear r
+    SDL.present r
+
 render :: Game ()
 render = do
     st <- get
@@ -174,6 +184,9 @@ render = do
     case mode of
         TitleScreen ->
             drawTitleScreen r (rTextures res) (menuSelection st)
+
+        GameOver ->
+            drawGameOverScreen r (rTextures res) -- Mostramos la pantalla de derrota
 
         Playing -> do
             let texs = rTextures res

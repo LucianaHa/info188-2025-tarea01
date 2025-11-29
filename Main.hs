@@ -93,17 +93,16 @@ main = do
         entDead = False, entDeathTick = 0, entRegenTick = 0
     }
 
-    -- NUEVO ENEMIGO: VACA
     let cowPos = V2 (45 * screenSize) (30 * screenSize)
     let vaca = Entity {
         entPos = cowPos, entTarget = cowPos, entOrigin = cowPos,
         entDir = Abajo, entIsMoving = False, entAnimFrame = 0, entAnimTimer = 0,
-        entSpeed = 10, -- Casi tan rápida como tú (12)
+        entSpeed = 10,
 
         entClass = Vaca,
-        entHp = 60, -- Mucha vida (Tanque)
+        entHp = 60,
         entMaxHp = 60,
-        entMinAtk = 5, -- Golpea fuerte
+        entMinAtk = 5,
         entMaxAtk = 8,
 
         entXp = 100, entLevel = 1, entNextLevel = 0,
@@ -114,13 +113,14 @@ main = do
 
     let estadoInicial = GameState {
         player      = jugador,
-        enemies     = [orco, zombie, vaca], -- ¡Vaca añadida!
+        enemies     = [orco, zombie, vaca],
         gameLog     = ["Bienvenido a la mazmorra."],
         resources   = misRecursos,
         renderer    = r,
         shouldExit  = False,
         gameMode    = TitleScreen,
-        menuSelection = 0
+        menuSelection = 0,
+        gameOverTimer = 0 -- Inicializado en 0
     }
 
     runStateT gameLoop estadoInicial

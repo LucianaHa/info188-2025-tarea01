@@ -23,11 +23,13 @@ cargarRecursos :: SDL.Renderer -> IO Resources
 cargarRecursos r = do
     texDungeon <- loadTexture r "Images/textures2D/Tiles/dungeon.png"
     texBackground <- loadTexture r "Images/HUD/TitleScreen/title.jpg"
+
+    -- NUEVO: Game Over
+    texGameOver <- loadTexture r "Images/HUD/GameOver/background.png"
+
     texHeroe <- loadTexture r "Images/textures2D/Animations/hero.png"
     texOgre <- loadTexture r "Images/textures2D/Animations/ogre.png"
     texZombie <- loadTexture r "Images/textures2D/Animations/zombie.png"
-
-    -- NUEVO: Vaca
     texCow <- loadTexture r "Images/textures2D/Animations/cow-white.png"
 
     miFuente <- loadFontSafe "assets/PressStart2P.ttf" 12
@@ -36,10 +38,11 @@ cargarRecursos r = do
         { rTextures = fromList
             [ ("dungeon", texDungeon)
             , ("background", texBackground)
+            , ("gameover", texGameOver) -- Añadido
             , ("hero", texHeroe)
             , ("ogre", texOgre)
             , ("zombie", texZombie)
-            , ("cow", texCow) -- Añadido
+            , ("cow", texCow)
             ]
         , rFont     = miFuente
         }

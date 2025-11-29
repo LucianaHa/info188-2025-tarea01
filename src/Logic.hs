@@ -155,10 +155,9 @@ actualizarEnemigos ticks = do
             let dest = entPos pj
             let dist = distL1 curr dest
 
-            -- LÓGICA DE VISIÓN SEGÚN TIPO
             let visionRange = case entClass eRegen of
                                 Zombie -> zombieAggroRange
-                                Vaca   -> cowAggroRange -- Miope
+                                Vaca   -> cowAggroRange
                                 _      -> aggroRange
 
             let tieneAggro = dist < visionRange
@@ -178,8 +177,15 @@ actualizarEnemigos ticks = do
                         let dano = randomRango (entMinAtk eConEstado) (entMaxAtk eConEstado) ticks
                         let nuevaVidaPj = max 0 (entHp pjCurr - dano)
 
-                        modify $ \s -> s { player = pjCurr { entHp = nuevaVidaPj } }
-                        agregarLog $ "¡El enemigo te ataca! -" ++ show dano ++ " HP"
+                        -- SI EL JUGADOR MUERE
+                        if nuevaVidaPj == 0 then do
+                            modify $ \s -> s { player = pjCurr { entHp = 0, entDead = True }
+                                             , gameMode = GameOver
+                                             , gameOverTimer = ticks } -- Guardamos tiempo de muerte
+                            agregarLog "¡Has muerto!"
+                        else do
+                            modify $ \s -> s { player = pjCurr { entHp = nuevaVidaPj } }
+                            agregarLog $ "¡El enemigo te ataca! -" ++ show dano ++ " HP"
 
                         return eConEstado { entCooldown = ticks + enemyAttackInterval }
                     else
@@ -342,15 +348,40 @@ handleEvents events ticks = do
     case mode of
         TitleScreen -> handleTitleEvents events
         Playing     -> handlePlayingEvents events ticks
+        GameOver    -> return () -- No hacer nada en Game Over
+
+-- Función para reiniciar el estado del juego
+resetGame :: Game ()
+resetGame = do
+    st <- get
+    let pj = player st
+
+    -- Reiniciamos al jugador
+    let pjReset = pj { entHp = entMaxHp pj, entDead = False, entPos = entOrigin pj, entTarget = entOrigin pj, entIsMoving = False }
+
+    -- Resucitamos a todos los enemigos y los ponemos en su origen
+    let enemiesReset = map (\e -> e { entHp = entMaxHp e, entDead = False, entPos = entOrigin e, entTarget = entOrigin e, entIsMoving = False, entAggro = False }) (enemies st)
+
+    modify $ \s -> s { player = pjReset, enemies = enemiesReset, gameMode = TitleScreen, gameLog = ["¡Nueva Partida!"] }
 
 updateGame :: Word32 -> Game ()
 updateGame ticks = do
     mode <- gets gameMode
-    when (mode == Playing) $ do
-        st <- get
-        let pj = player st
-        pjMovido <- if entIsMoving pj then updateEntityMovement pj else return pj
-        let pjRegen = regenerarVida pjMovido ticks
-        let pjAnim = updateEntityAnimation pjRegen ticks
-        modify $ \s -> s { player = pjAnim }
-        actualizarEnemigos ticks
+    case mode of
+        Playing -> do
+            st <- get
+            let pj = player st
+            pjMovido <- if entIsMoving pj then updateEntityMovement pj else return pj
+            let pjRegen = regenerarVida pjMovido ticks
+            let pjAnim = updateEntityAnimation pjRegen ticks
+            modify $ \s -> s { player = pjAnim }
+            actualizarEnemigos ticks
+
+        GameOver -> do
+            st <- get
+            -- Si han pasado 5000ms desde la muerte
+            if ticks > gameOverTimer st + 5000
+            then resetGame
+            else return ()
+
+        _ -> return ()

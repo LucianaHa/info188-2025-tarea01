@@ -8,13 +8,13 @@ import Data.Map (Map)
 import Data.Word (Word32)
 import Control.Monad.State (StateT)
 
-data GameMode = TitleScreen | Playing
+-- AÑADIDO: GameOver
+data GameMode = TitleScreen | Playing | GameOver
     deriving (Show, Eq)
 
 data Direccion = Abajo | Izquierda | Derecha | Arriba
     deriving (Show, Eq)
 
--- AÑADIDO: Vaca
 data Clase = Guerrero | Mago | Asesino | Orco | Esqueleto | Zombie | Vaca
     deriving (Show, Eq)
 
@@ -62,7 +62,10 @@ data GameState = GameState {
     renderer    :: SDL.Renderer,
     shouldExit  :: Bool,
     gameMode    :: GameMode,
-    menuSelection :: Int
+    menuSelection :: Int,
+
+    -- AÑADIDO: Para contar los 5 segundos de Game Over
+    gameOverTimer :: Word32
 }
 
 type Game = StateT GameState IO
