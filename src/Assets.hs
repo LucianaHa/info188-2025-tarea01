@@ -24,7 +24,7 @@ cargarRecursos :: SDL.Renderer -> IO Resources
 cargarRecursos r = do
     texDungeon <- loadTexture r "Images/textures2D/Tiles/dungeon.png"
     texBackground <- loadTexture r "Images/HUD/TitleScreen/title.jpg"
-
+    texShield <- loadTexture r "Images/textures2D/Animations/shield.png"
     -- NUEVO: Game Over
     texGameOver <- loadTexture r "Images/HUD/GameOver/background.png"
 
@@ -45,6 +45,7 @@ cargarRecursos r = do
             , ("zombie", texZombie)
             , ("cow", texCow)
             , ("items", texItems)
+            , ("shield",texShield)
             ]
         , rFont     = miFuente
         }

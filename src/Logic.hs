@@ -1,8 +1,8 @@
 module Logic where
 
 import qualified SDL
-import Linear (V2(..), (^-^), (^+^), (*^))
-import Linear.Metric (norm, distance)
+import Linear (V2(..), (^-^), (^+^), (*^),dot)
+import Linear.Metric (norm, distance, dot)
 import Control.Monad.State
 import Control.Monad (when, unless, forM, forM_)
 import Data.Word (Word32)
@@ -117,7 +117,28 @@ atacar ticks = do
         case enemigoGolpeado of
             Nothing -> return ()
             Just enemigo -> do
-                let nuevaVida = max 0 (entHp enemigo - danoConBuff)
+                -- === NUEVA LÓGICA DE ESCUDO / ESPALDA ===
+                
+                -- 1. Vector desde el Enemigo hacia el Jugador
+                let vecToPlayer = entPos pj - entPos enemigo
+                
+                -- 2. Vector de dirección hacia donde mira el Enemigo
+                let facingDir = getDirVec (entDir enemigo)
+                
+                -- 3. Producto Punto:
+                -- Si es > 0, los vectores van en la misma dirección (Enemigo mira al jugador -> ESCUDO)
+                -- Si es < 0, vectores opuestos (Enemigo mira otro lado -> ESPALDA)
+                -- Nota: Como es una grilla estricta, el valor será positivo o negativo claramente.
+                
+                let isFrontal = (vecToPlayer `dot` facingDir) > 0
+                
+                let (multiplier, msgHit) = if isFrontal
+                                           then (1.0, "")             -- Golpe en escudo
+                                           else (1.5, " [CRITICO]")   -- Golpe por la espalda
+                
+                let danoFinal = floor (fromIntegral danoConBuff * multiplier)
+
+                let nuevaVida = max 0 (entHp enemigo - danoFinal)
                 let estaMuerto = nuevaVida == 0
 
                 let enemigoActualizado = if estaMuerto

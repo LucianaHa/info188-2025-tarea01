@@ -8,7 +8,7 @@ import Control.Monad.State
 import Control.Monad (when, forM_, unless, forM)
 import qualified Data.Map as M
 import qualified Data.Text as T
-import Foreign.C.Types (CInt)
+import Foreign.C.Types (CInt, CDouble)
 import Data.Word (Word8)
 
 import Types
@@ -37,6 +37,13 @@ getTileRect id
 
 itemTilesetCols :: CInt
 itemTilesetCols = 8
+
+
+isPlayerClass :: Clase -> Bool
+isPlayerClass Guerrero = True
+isPlayerClass Mago     = True
+isPlayerClass Asesino  = True
+isPlayerClass _        = False
 
 -- NUEVA FUNCIÓN DE RECORTE: Usa 8 columnas en lugar de tilesetCols (6)
 getItemTileRect :: Int -> Maybe (SDL.Rectangle CInt)
@@ -117,72 +124,97 @@ queryTextureSafe :: SDL.Texture -> Game (CInt, CInt)
 queryTextureSafe tex = do
     info <- SDL.queryTexture tex
     return (SDL.textureWidth info, SDL.textureHeight info)
+-- (Tus imports y funciones auxiliares siguen igual...)
 
 renderEntity :: SDL.Renderer -> M.Map String SDL.Texture -> Entity -> V2 CInt -> Game ()
 renderEntity r texs ent cameraOffset = do
     let entClass' = entClass ent
-    let screenPos = entPos ent ^-^ cameraOffset
+    let tileScreenPos = entPos ent ^-^ cameraOffset
 
-    let destRect = SDL.Rectangle (P screenPos) (V2 screenSize screenSize)
+    -- =======================================================
+    -- BLOQUE 1: PERSONAJE (96px, Alineado al fondo)
+    -- =======================================================
+    
+    let offsetX = (screenSize - entityRenderSize) `div` 2
+    let offsetY = screenSize - entityRenderSize -- Pies en la base (-32px Y)
+    
+    let heroDrawPos = tileScreenPos + V2 offsetX offsetY
+    let destRect = SDL.Rectangle (P heroDrawPos) (V2 entityRenderSize entityRenderSize)
 
     let (texKey, frameIndex) = case entClass' of
                                     Guerrero -> ("hero", entAnimFrame ent)
                                     Orco     -> ("ogre", entAnimFrame ent)
                                     Zombie   -> ("zombie", entAnimFrame ent)
                                     Vaca     -> ("cow", entAnimFrame ent)
-                                    _        -> ("dungeon", fromIntegral (characterIndexFromClass entClass'))
-
-    let spriteSize = if texKey == "dungeon" then tileSizeSource else heroSize
+                                    _        -> ("hero", entAnimFrame ent)
 
     case M.lookup texKey texs of
         Nothing -> return ()
-
         Just tex -> do
-            -- 1. CALCULAR RECORTE DEL SPRITE (Lógica de Animación Avanzada)
-            srcRect <- if texKey == "dungeon"
-                then
-                    let
-                        srcX = fromIntegral frameIndex * spriteSize
-                        srcY = heroStartY
-                    in return $ SDL.Rectangle (P (V2 srcX srcY)) (V2 spriteSize spriteSize)
-                else do
-                    -- La lógica avanzada de animación (filas/columnas)
-                    let cols = 4
-                    let rows = 4
-                    (texW, texH) <- queryTextureSafe tex
+            let cellSize = case texKey of "cow" -> 48; _ -> 32
+            let row = case entDir ent of Abajo -> 0; Izquierda -> 1; Arriba -> 2; Derecha -> 3
+            let col = fromIntegral (entAnimFrame ent)
+            let srcRect = SDL.Rectangle (P (V2 (col * cellSize) (row * cellSize))) (V2 cellSize cellSize)
 
-                    let cellW = fromIntegral texW `div` cols
-                    let cellH = fromIntegral texH `div` rows
-
-                    let row = case entDir ent of
-                                Abajo     -> 0
-                                Izquierda -> 1
-                                Arriba    -> 2
-                                Derecha   -> 3
-
-                    let col = fromIntegral (entAnimFrame ent)
-
-                    let srcX = col * cellW
-                    let srcY = row * cellH
-
-                    return $ SDL.Rectangle (P (V2 srcX srcY)) (V2 cellW cellH)
-
-            -- 2. APLICAR TRANSPARENCIA (Tu lógica)
-            let alphaValue = if entInvisible ent
-                            then 128           -- 50% de opacidad
-                            else 255           -- 100% de opacidad
-
+            let alphaValue = if entInvisible ent then 128 else 255
             SDL.textureAlphaMod tex SDL.$= (fromIntegral alphaValue)
-
-            -- 3. DIBUJAR
             SDL.copy r tex (Just srcRect) (Just destRect)
-
-            -- 4. RESTAURAR OPACIDAD DEL TEXTURE (CRUCIAL)
             SDL.textureAlphaMod tex SDL.$= 255
 
-            -- BARRA DE VIDA
-            when (entHp ent < entMaxHp ent || entAggro ent) $ do
-                drawHealthBar r screenPos (entHp ent) (entMaxHp ent)
+    -- =======================================================
+    -- BLOQUE 2: ESCUDO (Centrado Perfecto y Estable)
+    -- =======================================================
+    
+    when (isPlayerClass entClass' && not (entDead ent)) $ do
+        case M.lookup "shield" texs of
+            Nothing -> return ()
+            Just texShield -> do
+                
+                -- Dimensiones: 100 ancho x 80 alto (Proporción correcta)
+                let shieldW = 100
+                let shieldH = 80
+                let shieldSize = V2 shieldW shieldH
+                
+                -- Ángulo de rotación
+                let angle :: CDouble
+                    angle = case entDir ent of
+                        Arriba    -> 0
+                        Derecha   -> 90
+                        Abajo     -> 180
+                        Izquierda -> 270
+
+                -- POSICIÓN FIJA (Sin 'case' para offsets manuales)
+                
+                -- 1. Centramos el escudo (100x80) sobre el sprite del héroe (96x96)
+                let centerOffsetX = (entityRenderSize - shieldW) `div` 2
+                let centerOffsetY = (entityRenderSize - shieldH) `div` 2
+                
+
+                let verticalShift = case entDir ent of
+                        Arriba -> 16 
+                        Abajo -> 24
+                        _     -> 20
+                -- Posición final constante
+                let finalShieldPos = heroDrawPos + V2 centerOffsetX (centerOffsetY + verticalShift)
+                
+                let destRectShield = SDL.Rectangle (P finalShieldPos) shieldSize
+
+                -- Renderizado
+                let alphaValue = if entInvisible ent then 60 else 160
+
+                SDL.textureAlphaMod texShield SDL.$= (fromIntegral alphaValue)
+
+                SDL.copyEx r texShield Nothing (Just destRectShield) angle Nothing (SDL.V2 False False)
+                
+                SDL.textureAlphaMod texShield SDL.$= 255
+
+    -- =======================================================
+    -- BLOQUE 3: BARRA DE VIDA
+    -- =======================================================
+    
+    when (entHp ent < entMaxHp ent || entAggro ent) $ do
+        let barPos = tileScreenPos + V2 0 (-106)
+        drawHealthBar r barPos (entHp ent) (entMaxHp ent)
 
 drawTitleScreen :: SDL.Renderer -> M.Map String SDL.Texture -> Int -> Game ()
 drawTitleScreen r texs sel = do
@@ -277,7 +309,7 @@ renderItem r tex item cameraOffset = do
     let tileID = itemTileID (itemType item)
     case getItemTileRect tileID of
         Nothing -> return ()
-        Just srcRect -> do
+        Just srcRect -> do  
             let screenPos = itemPos item ^-^ cameraOffset
             let destRect = SDL.Rectangle (P screenPos) (V2 screenSize screenSize)
             SDL.copy r tex (Just srcRect) (Just destRect)

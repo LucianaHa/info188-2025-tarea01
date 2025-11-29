@@ -13,12 +13,12 @@ tileSizeSource = 16
 tilesetCols :: CInt
 tilesetCols = 6
 
-heroStartY :: CInt
-heroStartY = 144
-
 -- PANTALLA
 screenSize :: CInt
 screenSize = 64
+
+entityRenderSize :: CInt
+entityRenderSize = 96
 
 walkSpeed :: CInt
 walkSpeed = 4
