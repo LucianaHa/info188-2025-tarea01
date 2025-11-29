@@ -122,7 +122,8 @@ createPlayer cls pos = Entity {
     entAggro = False, entPatrolTimer = 0,
     entDead = False, entDeathTick = 0, entRegenTick = 0,
     entBuffAtkEnd = 0, entBuffSpdEnd = 0, entInvisible = False, entInvEnd = 0,
-    entAttackType = NoAttack, entAttackTimer = 0
+    entAttackType = NoAttack, entAttackTimer = 0,
+    entStepTimer = 0
 }
 
 registrarEncuentro :: Clase -> Game ()
@@ -282,6 +283,13 @@ pickUpItem ticks = do
                     _ -> (pj, "Item desconocido")
 
             modify $ \s -> s { player = pjEfecto, mapItems = nuevaListaItems }
+
+            when (tipo == PotionVeneno) $ do
+                stActual <- get
+                let res = resources stActual
+                liftIO $ case rSfxDamage res of
+                    Just sfx -> SDL.Mixer.play sfx
+                    Nothing -> return ()
             agregarLog logMsg
 
 -- ==========================================
@@ -363,7 +371,18 @@ actualizarEnemigos ticks = do
                         let dano = randomRango (entMinAtk eConEstado) (entMaxAtk eConEstado) ticks
                         let nuevaVidaPj = max 0 (entHp pjCurr - dano)
 
+                        --REPRODUCIR SONIDO SI HAY DAÑO
+                        when (dano > 0) $ do
+                             let res = resources stCurr
+                             liftIO $ case rSfxDamage res of
+                                Just sfx -> SDL.Mixer.play sfx
+                                Nothing -> return ()
+
                         if nuevaVidaPj == 0 then do
+                            let res = resources stCurr
+                            liftIO $ case rSfxDeath res of
+                                Just sfx -> SDL.Mixer.play sfx
+                                Nothing -> return ()
                             modify $ \s -> s { player = pjCurr { entHp = 0, entDead = True }
                                              , gameMode = GameOver
                                              , gameOverTimer = ticks }
@@ -644,10 +663,36 @@ updateEntityMovement e = do
     let diff = dest ^-^ curr
     let dist = distL1 curr dest
     let speed = entSpeed e
+    
     if dist <= speed
         then return e { entPos = dest, entIsMoving = False }
         else do
+            -- LÓGICA DE MOVIMIENTO
             let (V2 dx dy) = diff
             let signumVec = V2 (signum dx) (signum dy)
             let step = speed *^ signumVec
-            return e { entPos = curr + step }
+            
+            -- LÓGICA DE SONIDO DE PASOS
+            st <- get
+            ticks <- liftIO SDL.ticks
+            let res = resources st
+            
+            -- ¿Es el Héroe? ¿Ha pasado suficiente tiempo (350ms)?
+            let eConSonido = if isPlayerClass (entClass e) && ticks > entStepTimer e
+                then e { entStepTimer = ticks + 350 } -- Resetear timer (350ms de espera)
+                else e
+
+            -- Si acabamos de resetear el timer, reproducir sonido
+            when (entStepTimer eConSonido > entStepTimer e) $ do
+                liftIO $ case rSfxStep res of
+                    Just sfx -> SDL.Mixer.play sfx -- ¡PLOC!
+                    Nothing  -> return ()
+
+            return eConSonido { entPos = curr + step }
+
+isPlayerClass :: Clase -> Bool
+isPlayerClass Hero    = True
+isPlayerClass Paladin = True
+isPlayerClass Bruja   = True
+isPlayerClass Chamana = True
+isPlayerClass _       = False

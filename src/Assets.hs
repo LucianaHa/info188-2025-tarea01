@@ -25,11 +25,19 @@ loadMusicSafe path = do
     result <- try (SDL.Mixer.load path) :: IO (Either SomeException SDL.Mixer.Music)
     case result of
         Left err -> do
-            -- ESTAS LINEAS SON NUEVAS:
             putStrLn $ "ERROR CRÍTICO: " ++ show err 
             putStrLn $ "ADVERTENCIA: No se pudo cargar: " ++ path
             return Nothing
         Right music -> return (Just music)
+
+loadChunkSafe :: FilePath -> IO (Maybe SDL.Mixer.Chunk)
+loadChunkSafe path = do
+    result <- try (SDL.Mixer.load path) :: IO (Either SomeException SDL.Mixer.Chunk)
+    case result of
+        Left _ -> do
+            putStrLn $ "ADVERTENCIA: No se encontró SFX en: " ++ path
+            return Nothing
+        Right chunk -> return (Just chunk)
 
 cargarRecursos :: SDL.Renderer -> IO Resources
 cargarRecursos r = do
@@ -43,6 +51,10 @@ cargarRecursos r = do
 
     -- CARGAR LA MÚSICA
     musicaTitulo <- loadMusicSafe "Music/titleMusic.ogg"
+
+    sfxPasos <- loadChunkSafe "Music/human_walk_stone.ogg"
+    sfxDano <- loadChunkSafe "Music/human_damage.ogg"
+    sfxMuerte <- loadChunkSafe "Music/human_death_spin.ogg"
 
     -- == CARGA DE PERSONAJES ==
     texHeroe <- loadTexture r "Images/textures2D/Animations/hero.png"
@@ -73,4 +85,7 @@ cargarRecursos r = do
             ]
         , rFont     = miFuente
         , rMusicTitle = musicaTitulo
+        , rSfxStep    = sfxPasos
+        , rSfxDamage  = sfxDano
+        , rSfxDeath   = sfxMuerte
         }

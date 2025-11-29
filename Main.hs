@@ -120,7 +120,8 @@ main = do
         entDead = False, entDeathTick = 0, entRegenTick = 0,
 
         entAttackType = NoAttack,
-        entAttackTimer = 0
+        entAttackTimer = 0,
+        entStepTimer = 0
     }
 
     let zombiePos = V2 (15 * screenSize) (10 * screenSize)
@@ -150,7 +151,8 @@ main = do
         entDead = False, entDeathTick = 0, entRegenTick = 0,
 
         entAttackType = NoAttack,
-        entAttackTimer = 0
+        entAttackTimer = 0,
+        entStepTimer = 0
     }
 
     let cowPos = V2 (45 * screenSize) (30 * screenSize)
@@ -181,7 +183,8 @@ main = do
         entDead = False, entDeathTick = 0, entRegenTick = 0,
 
         entAttackType = NoAttack,
-        entAttackTimer = 0
+        entAttackTimer = 0,
+        entStepTimer = 0
     }
     let estadoInicial = GameState {
         player      = jugador,

@@ -48,7 +48,10 @@ type AssetManager = Map String SDL.Texture
 data Resources = Resources
     { rTextures   :: AssetManager
     , rFont       :: Maybe SDL.Font.Font
-    , rMusicTitle :: Maybe SDL.Mixer.Music -- <--- NUEVO CAMPO
+    , rMusicTitle :: Maybe SDL.Mixer.Music
+    , rSfxStep    :: Maybe SDL.Mixer.Chunk
+    , rSfxDamage  :: Maybe SDL.Mixer.Chunk
+    , rSfxDeath   :: Maybe SDL.Mixer.Chunk
     }
 
 data Entity = Entity {
@@ -87,7 +90,8 @@ data Entity = Entity {
 
     entDead      :: Bool,
     entDeathTick :: Word32,
-    entRegenTick :: Word32
+    entRegenTick :: Word32,
+    entStepTimer :: Word32
 } deriving (Show, Eq)
 
 data GameState = GameState {
