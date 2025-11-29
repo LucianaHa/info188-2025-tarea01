@@ -18,11 +18,9 @@ import qualified SDL.Mixer as Mixer
 import Data.Map (Map)
 import Linear (V2)
 import Foreign.C.Types (CInt)
-import Data.Map (Map)
 import Data.Word (Word32)
 import Control.Monad.State (StateT)
 
--- AÑADIDO: GameOver
 data GameMode = TitleScreen | Playing | GameOver
     deriving (Show, Eq)
 
@@ -36,20 +34,25 @@ data AttackType = NoAttack | AtkNormal | AtkArea
     deriving (Show, Eq)
 
 data ItemType = PotionFuerza | PotionInvisibilidad | PotionVelocidad | PotionVeneno
-		deriving (Show, Eq)
+        deriving (Show, Eq)
 
 data Item = Item {
     itemType :: ItemType,
-    itemPos  :: V2 CInt, -- Posición en el mapa
-    itemObtained :: Bool -- Si ya fue recogido
+    itemPos  :: V2 CInt,
+    itemObtained :: Bool
 } deriving (Show, Eq)
 
 type AssetManager = Map String SDL.Texture
 
 data Resources = Resources
-    { rTextures :: AssetManager
-    , rFont     :: Maybe SDL.Font.Font
-    , rMusic    :: Map Int Mixer.Music
+    { rTextures   :: AssetManager
+    , rFont       :: Maybe SDL.Font.Font
+    
+    -- FUSIÓN: Tu mapa de niveles + Los SFX del equipo
+    , rMusic      :: Map Int Mixer.Music  -- Música de fondo por nivel
+    , rSfxStep    :: Maybe Mixer.Chunk    -- Pasos
+    , rSfxDamage  :: Maybe Mixer.Chunk    -- Daño
+    , rSfxDeath   :: Maybe Mixer.Chunk    -- Muerte
     }
 
 data Entity = Entity {
@@ -75,20 +78,22 @@ data Entity = Entity {
     entCooldown  :: Word32,
     entAggro     :: Bool,
     entPatrolTimer :: Word32,
-    entBuffAtkEnd  :: Word32,  --Finaliza el efecto de PotionFueza
-    entBuffSpdEnd  :: Word32,  -- Finaliza el efecto de PotionVelocidad
-    entInvisible :: Bool,  -- Estado actual de Invisibilidad
-    entInvEnd  :: Word32,  -- Finaliza el efecto de PotionInvisibilidad
-    entBaseMinAtk :: Int,    -- Mínimo ataque base
-    entBaseMaxAtk :: Int,    -- Máximo ataque base
-    entBaseSpeed  :: CInt,   -- Velocidad base
+    entBuffAtkEnd  :: Word32,
+    entBuffSpdEnd  :: Word32,
+    entInvisible :: Bool,
+    entInvEnd  :: Word32,
+    entBaseMinAtk :: Int,
+    entBaseMaxAtk :: Int,
+    entBaseSpeed  :: CInt,
 
     entAttackType  :: AttackType, 
     entAttackTimer :: Word32,
 
     entDead      :: Bool,
     entDeathTick :: Word32,
-    entRegenTick :: Word32
+    entRegenTick :: Word32,
+    
+    entStepTimer :: Word32 -- Timer para sonido de pasos
 } deriving (Show, Eq)
 
 data GameState = GameState {

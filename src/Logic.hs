@@ -2,14 +2,14 @@ module Logic where
 
 import qualified SDL
 import Linear (V2(..), (^-^), (^+^), (*^))
-import Linear.Metric (norm, distance, dot) -- Importamos dot y distance
+import Linear.Metric (norm, distance, dot)
 import Control.Monad.State
 import Control.Monad (when, unless, forM, forM_)
 import Data.Word (Word32)
 import Foreign.C.Types (CInt)
 import Data.List (find)
 import Linear.Affine (Point(..))
-import qualified SDL.Mixer as Mixer
+import qualified SDL.Mixer as Mixer -- Importamos como Mixer
 import qualified Data.Map as M
 
 import Types
@@ -20,9 +20,8 @@ import Maps
 -- 0. CONSTANTES DE COMBATE
 -- ==========================================
 
-
 buffDuration :: Word32
-buffDuration = 10000 -- Duración pociones
+buffDuration = 10000
 
 -- ==========================================
 -- 1. UTILIDADES Y BUFFS
@@ -89,13 +88,13 @@ playMusicForLevel nivel = do
     let musicaMap = rMusic res
     
     case M.lookup nivel musicaMap of
-        Nothing -> return () -- No hay música para este nivel
+        Nothing -> return ()
         Just song -> do
-            liftIO $ Mixer.haltMusic       -- Detener anterior
-            liftIO $ Mixer.playMusic (-1) song
+            liftIO $ Mixer.haltMusic
+            liftIO $ Mixer.playMusic Mixer.Forever song -- Corregido: Usa Mixer.Forever
 
 -- ==========================================
--- 2. COMBATE Y XP (NUEVO SISTEMA Q/W)
+-- 2. COMBATE Y XP
 -- ==========================================
 
 createEnemy :: Clase -> V2 CInt -> Entity
@@ -104,71 +103,44 @@ createEnemy cls pos = Entity {
     entIsMoving = False, entAnimFrame = 0, entAnimTimer = 0,
     entClass = cls,
     
-    -- STATS: Rata tiene poca vida
     entHp = if cls == Rata then 8 else (if cls == Vaca then 150 else 20),
     entMaxHp = if cls == Rata then 8 else (if cls == Vaca then 150 else 20),
-    
-    -- DAÑO: Rata pega 2-5
     entMinAtk = if cls == Rata then 1 else (if cls == Vaca then 8 else 5), 
     entMaxAtk = if cls == Rata then 3 else (if cls == Vaca then 12 else 8),
-    
-    -- VELOCIDAD: Rata es rápida (14), Zombie lento (5)
     entSpeed = if cls == Rata then 14 else 8, 
     entXp = if cls == Rata then 15 else 100,
     
-    -- Defaults
     entLevel=1, entNextLevel=0, entCooldown=0, entAggro=False, entPatrolTimer=0,
     entBuffAtkEnd=0, entBuffSpdEnd=0, entInvisible=False, entInvEnd=0,
     entBaseMinAtk=2, entBaseMaxAtk=5, entBaseSpeed=10,
     entDead=False, entDeathTick=0, entRegenTick=0,
-    entAttackType=NoAttack, entAttackTimer=0
+    entAttackType=NoAttack, entAttackTimer=0,
+    entStepTimer = 0
 }
 
 generarEnemigos :: Int -> [Entity]
 generarEnemigos nivel = case nivel of
-    1 -> 
-        -- MUCHAS RATAS + Algunos Zombies
-        [ createEnemy Rata (V2 (x * screenSize) (y * screenSize)) 
-        | (x, y) <- [
-            (10, 50), -- Sala A (Abajo Izquierda)
-            (12, 45), -- Sala A
-            (30, 40), -- Sala C (Centro)
-            (35, 35), -- Sala C
-            (52, 20), -- Sala D (Arriba Derecha, pasillo largo)
-            (54, 25)  -- Sala D
-            ]
-        ] ++
-        [ createEnemy Zombie (V2 (10* screenSize) (10* screenSize)) ]
-
-    2 -> 
-        -- SOLO LA VACA (Boss) en el centro
-        [ createEnemy Vaca (V2 (30 * screenSize) (55 * screenSize)) ]
-    
+    1 -> [ createEnemy Rata (V2 (x * screenSize) (y * screenSize)) 
+         | (x, y) <- [(10, 50), (12, 45), (30, 40), (35, 35), (52, 20), (54, 25)] ] ++
+         [ createEnemy Zombie (V2 (10* screenSize) (10* screenSize)) ]
+    2 -> [ createEnemy Vaca (V2 (30 * screenSize) (55 * screenSize)) ]
     _ -> []
 
--- FUNCIÓN PARA DETECTAR ESCALERA
 checkStairs :: Game ()
 checkStairs = do
     st <- get
     let pj = player st
-    let mapa = currentMap st -- Ahora sí existe esta variable
+    let mapa = currentMap st
     let (V2 px py) = entPos pj
-    
-    -- Chequear centro del personaje
     let tx = fromIntegral ((px + 32) `div` screenSize)
     let ty = fromIntegral ((py + 32) `div` screenSize)
-    
-    -- Verificar si pisamos tileEscalera (5)
     let esEscalera = (mapa !! ty !! tx) == tileEscalera
     
     when (currentLevel st == 1 && esEscalera) $ do
         let nuevoNivel = 2
         let nuevosEnemigos = generarEnemigos nuevoNivel
         let nuevoMapa = mapaNivel2
-        
-        -- POSICIÓN SEGURA (Inicio del pasillo nivel 2)
-        -- X = 30 (Centro), Y = 6 (Arriba)
-        let startPos = V2 (30 * screenSize) (5*screenSize) 
+        let startPos = V2 (30 * screenSize) (4 * screenSize) -- Posición corregida
         
         modify $ \s -> s {
             currentLevel = nuevoNivel,
@@ -179,73 +151,47 @@ checkStairs = do
         }
         playMusicForLevel nuevoNivel
 
--- ACTUALIZAR EL UPDATE GAME
-
 createPlayer :: Clase -> V2 CInt -> Entity
 createPlayer cls pos = Entity {
     entPos = pos, entTarget = pos, entOrigin = pos,
     entDir = Abajo, entIsMoving = False, entAnimFrame = 0, entAnimTimer = 0,
-    
-    -- Stats variables según la clase
-    entSpeed = case cls of
-        Chamana -> 15 -- Muy rápida
-        Bruja   -> 11
-        Paladin -> 9  -- Lento
-        _       -> 12, -- Hero (Estándar)
-
+    entSpeed = case cls of Chamana -> 15; Bruja -> 11; Paladin -> 9; _ -> 12,
     entClass = cls,
-    
-    entMaxHp = case cls of
-        Paladin -> 35 -- Tanque
-        Hero    -> 20
-        Chamana -> 16
-        Bruja   -> 12 -- Frágil
-        _       -> 20,
+    entMaxHp = case cls of Paladin -> 35; Chamana -> 16; Bruja -> 12; _ -> 20,
     entHp = case cls of Paladin -> 35; Chamana -> 16; Bruja -> 12; _ -> 20,
-
     entMinAtk = case cls of Bruja -> 9; Chamana -> 5; Paladin -> 4; _ -> 6,
     entMaxAtk = case cls of Bruja -> 14; Chamana -> 7; Paladin -> 6; _ -> 8,
-
-    -- Cooldown base (velocidad de ataque)
     entCooldown = 0, 
     entBaseSpeed = case cls of Chamana -> 15; Bruja -> 11; Paladin -> 9; _ -> 12,
     entBaseMinAtk = case cls of Bruja -> 9; Chamana -> 5; Paladin -> 4; _ -> 6,
     entBaseMaxAtk = case cls of Bruja -> 14; Chamana -> 7; Paladin -> 6; _ -> 8,
-
-    -- Valores comunes
     entXp = 0, entLevel = 1, entNextLevel = 100,
     entAggro = False, entPatrolTimer = 0,
     entDead = False, entDeathTick = 0, entRegenTick = 0,
     entBuffAtkEnd = 0, entBuffSpdEnd = 0, entInvisible = False, entInvEnd = 0,
-    entAttackType = NoAttack, entAttackTimer = 0
+    entAttackType = NoAttack, entAttackTimer = 0,
+    entStepTimer = 0
 }
 
 registrarEncuentro :: Clase -> Game ()
 registrarEncuentro cls = do
     st <- get
     let yaVisto = cls `elem` encounteredTypes st
-    
     unless yaVisto $ do
-        -- Mensajes personalizados según el enemigo
         let msg = case cls of
-                Orco   -> "¡UN ORCO! Para mi mala suerte..."
-                Vaca   -> "Uh eso es... ¿¿¡¡¿¿UNA VACA!!??"
-                Zombie -> "¡ZOMBIE! Es lento pero persistente."
-                _      -> "¡Un nuevo enemigo aparece!"
-        
+                Orco   -> "¡UN ORCO!..."
+                Vaca   -> "¡¡BOSS VACA!!"
+                Zombie -> "¡ZOMBIE!..."
+                Rata   -> "¡Ratas gigantes!"
+                _      -> "¡Enemigo nuevo!"
         agregarLog msg
-        -- Guardamos que ya lo vimos para no repetir el mensaje
         modify $ \s -> s { encounteredTypes = cls : encounteredTypes s }
 
--- Función principal de ataque (Reemplaza a la antigua 'atacar')
 realizarAtaque :: AttackType -> Word32 -> Game ()
 realizarAtaque tipo ticks = do
     st <- get
     let pj = player st
     let enemigos = enemies st
-
-    -- 1. Iniciar Animación y Cooldown
-    -- Usamos entCooldown base de la clase (para que el Paladin sea lento y la Chamana rapida si quisieras)
     let cooldownBase = if entClass pj == Paladin then 1000 else 800 
 
     let pjAnim = pj { entAttackType = tipo
@@ -254,40 +200,35 @@ realizarAtaque tipo ticks = do
                     } 
     put st { player = pjAnim }
 
-    -- 2. CÁLCULO DE DAÑO (Integrado con las clases de tus compañeros)
-    -- Calculamos daño aleatorio basado en los stats de la clase actual
     let dmgRnd = randomRango (entMinAtk pj) (entMaxAtk pj) ticks
-    
     let (dmgBase, esArea) = case tipo of
-            AtkNormal -> (dmgRnd, False)       -- Q: Usa los stats del personaje
-            AtkArea   -> (damageArea, True)    -- W: Daño fijo de área (definido en Config)
+            AtkNormal -> (dmgRnd, False)
+            AtkArea   -> (damageArea, True)
             _         -> (0, False)
 
-    -- Bonus de poción
     let bonus = if entBuffAtkEnd pj > ticks then 5 else 0
     let dmgPotencial = dmgBase + bonus
-
-    -- 3. Filtrar enemigos golpeados
     let victimas = filter (\e -> not (entDead e) && esGolpeado pj e esArea) enemigos
 
-    -- 4. Aplicar Daño, XP y Logs Detallados
     unless (null victimas) $ do
-
-        -- Registrar avistamiento (para el log gracioso de "Una vaca!")
         forM_ victimas $ \v -> registrarEncuentro (entClass v)
         
-        -- Procesamos daño y recolectamos resultados individuales
         results <- forM enemigos $ \e -> do
             if e `elem` victimas
             then do
-                -- Backstab (Solo en ataque normal Q)
                 let mult = if not esArea && esBackstab pj e then 1.5 else 1.0
                 let dmgTotal = floor (fromIntegral dmgPotencial * mult)
-                
                 let nuevaHp = max 0 (entHp e - dmgTotal)
                 let muerto = nuevaHp == 0
                 let xp = if muerto then entXp e else 0
                 
+                -- REPRODUCIR SONIDO DE DAÑO (Corregido: Mixer.play)
+                stSfx <- get
+                let resSfx = resources stSfx
+                when (dmgTotal > 0) $ liftIO $ case rSfxDamage resSfx of
+                    Just sfx -> Mixer.play sfx 
+                    Nothing -> return ()
+
                 let eNew = e { entHp = nuevaHp
                              , entAggro = True
                              , entDead = muerto
@@ -297,12 +238,10 @@ realizarAtaque tipo ticks = do
             else 
                 return (e, Nothing, 0)
 
-        -- Separar resultados
         let nuevosEnemigos = map (\(e,_,_) -> e) results
-        let damages = [ d | (_, Just d, _) <- results ] -- Lista de daños reales
+        let damages = [ d | (_, Just d, _) <- results ]
         let xpTotal = sum [ x | (_, _, x) <- results ]
 
-        -- Actualizar Player con XP ganada
         stUpdated <- get
         let pjActualizado = player stUpdated
         let (pjConLevelUp, msgLevel) = if xpTotal > 0 
@@ -311,36 +250,27 @@ realizarAtaque tipo ticks = do
 
         modify $ \s -> s { enemies = nuevosEnemigos, player = pjConLevelUp }
 
-        -- LOGS MEJORADOS (Suma visual)
         let dmgString = foldl (\acc d -> if acc == "" then show d else acc ++ "+" ++ show d) "" damages
-        
         let msgHit = if esArea 
                      then "¡Giro! Daño: (" ++ dmgString ++ ")" 
-                     else "¡Golpe! Daño: " ++ dmgString ++ (if length damages > 1 then " (Total)" else "") ++ (if esBackstab pj (head victimas) && not esArea then " [CRIT]" else "")
+                     else "¡Golpe! Daño: " ++ dmgString
 
         agregarLog msgHit
         when (msgLevel /= "") $ agregarLog msgLevel
 
--- Detecta si un enemigo es golpeado según el tipo de ataque
 esGolpeado :: Entity -> Entity -> Bool -> Bool
 esGolpeado atacante victima esArea
     | esArea = 
-        -- W: Lógica Circular
         let posA = fmap fromIntegral (entPos atacante)
             posV = fmap fromIntegral (entPos victima)
             dist = distance posA posV :: Float
         in dist < fromIntegral rangeArea
     | otherwise = 
-        -- Q: Lógica Frontal (Hitbox permisiva)
         let dirVec = getDirVec (entDir atacante)
-            -- Calculamos el centro de la casilla frente al jugador
             zonaAtaque = entPos atacante + (screenSize *^ dirVec)
-            -- Calculamos distancia entre esa zona y el enemigo
             dist = distL1 zonaAtaque (entPos victima)
-        in dist < 40 -- Tolerancia: Si está a menos de 40px del centro, golpea.
+        in dist < 40
 
-
--- Detecta ataque por la espalda (Backstab)
 esBackstab :: Entity -> Entity -> Bool
 esBackstab atacante victima =
     let vecToAttacker = entPos atacante - entPos victima
@@ -355,8 +285,8 @@ ganarXP ent xpGanada =
        then (ent { entXp = nuevaXp - necesaria
                  , entLevel = entLevel ent + 1
                  , entNextLevel = floor (fromIntegral necesaria * 1.5)
-                 , entMaxHp = entMaxHp ent + 5  -- Sube vida máxima
-                 , entHp = entMaxHp ent + 5     -- Cura al máximo + bono
+                 , entMaxHp = entMaxHp ent + 5
+                 , entHp = entMaxHp ent + 5
                  }, "¡LEVEL UP! HP Aumentada.")
        else (ent { entXp = nuevaXp }, "")
 
@@ -386,6 +316,13 @@ pickUpItem ticks = do
                     _ -> (pj, "Item desconocido")
 
             modify $ \s -> s { player = pjEfecto, mapItems = nuevaListaItems }
+
+            when (tipo == PotionVeneno) $ do
+                stActual <- get
+                let res = resources stActual
+                liftIO $ case rSfxDamage res of
+                    Just sfx -> Mixer.play sfx -- Corregido: Mixer.play
+                    Nothing -> return ()
             agregarLog logMsg
 
 -- ==========================================
@@ -400,19 +337,14 @@ regenerarVida ent ticks =
 
 updateEntityAnimation :: Entity -> Word32 -> Entity
 updateEntityAnimation ent ticks =
-    let animSpeed = 100 -- Velocidad de animación (ms por frame)
+    let animSpeed = 100 
         isAttacking = entAttackType ent /= NoAttack
-        
-        -- Avanzamos el timer si se mueve O si está atacando
         shouldAnimate = entIsMoving ent || isAttacking
-        
         (newFrame, newTimer) =
             if shouldAnimate && ticks > entAnimTimer ent + animSpeed
-            then ((entAnimFrame ent + 1) `mod` 3, ticks) -- Ciclo de 3 frames para ataques/andar
-            else (if shouldAnimate then entAnimFrame ent else 0, entAnimTimer ent) -- Reset a 0 si quieto
-            
+            then ((entAnimFrame ent + 1) `mod` 3, ticks)
+            else (if shouldAnimate then entAnimFrame ent else 0, entAnimTimer ent)
     in ent { entAnimFrame = newFrame, entAnimTimer = newTimer }
-
 
 actualizarEnemigos :: Word32 -> Game ()
 actualizarEnemigos ticks = do
@@ -421,25 +353,19 @@ actualizarEnemigos ticks = do
     let pj = player stInicial
 
     nuevosEnemigos <- forM listaEnemigos $ \e -> do
-        -- 1. Animación (Solo frames de movimiento, ignoramos ataques complejos)
         let eAnim = updateEntityAnimation e ticks
 
         if entDead eAnim
         then do
-            -- Respawn
             if ticks > entDeathTick eAnim + respawnTime
             then return eAnim { entHp = entMaxHp eAnim, entDead = False, entPos = entOrigin eAnim, entAggro = False }
             else return eAnim
         else do
             let eRegen = regenerarVida eAnim ticks
-            
-            -- Lógica de Aggro (Visión)
             let curr = entPos eRegen
             let dest = entPos pj
             let dist = distL1 curr dest
             let pjEsVisible = not (entInvisible pj)
-            
-            -- Rangos de visión según tipo
             let visionRange = case entClass eRegen of
                                 Zombie -> zombieAggroRange
                                 Vaca   -> cowAggroRange
@@ -448,26 +374,31 @@ actualizarEnemigos ticks = do
             let tieneAggro = dist < visionRange && pjEsVisible
             let eConEstado = eRegen { entAggro = tieneAggro }
 
-            -- TOMA DE DECISIONES
             eConAccion <- if tieneAggro
             then do
-                -- == MODO PERSECUCIÓN / ATAQUE ==
                 let diff = dest - curr
                 let (V2 dx dy) = diff
-
-                -- Si está en rango de ataque (cuerpo a cuerpo simple)
                 if dist <= attackRange + (screenSize `div` 2)
                 then do
                     if ticks > entCooldown eConEstado
                     then do
                         registrarEncuentro (entClass eConEstado)
-                        -- Daño simple directo al jugador
                         stCurr <- get
                         let pjCurr = player stCurr
                         let dano = randomRango (entMinAtk eConEstado) (entMaxAtk eConEstado) ticks
                         let nuevaVidaPj = max 0 (entHp pjCurr - dano)
 
+                        when (dano > 0) $ do
+                             let res = resources stCurr
+                             liftIO $ case rSfxDamage res of
+                                Just sfx -> Mixer.play sfx -- Corregido: Mixer.play
+                                Nothing -> return ()
+
                         if nuevaVidaPj == 0 then do
+                            let res = resources stCurr
+                            liftIO $ case rSfxDeath res of
+                                Just sfx -> Mixer.play sfx -- Corregido: Mixer.play
+                                Nothing -> return ()
                             modify $ \s -> s { player = pjCurr { entHp = 0, entDead = True }
                                              , gameMode = GameOver
                                              , gameOverTimer = ticks }
@@ -477,20 +408,15 @@ actualizarEnemigos ticks = do
                             agregarLog $ "¡El enemigo te ataca! -" ++ show dano ++ " HP"
 
                         return eConEstado { entCooldown = ticks + enemyAttackInterval }
-                    else
-                        return eConEstado
+                    else return eConEstado
                 else do
-                    -- Perseguir caminando
                     if not (entIsMoving eConEstado)
                     then do
                         let stepX = if dx > 0 then V2 1 0 else V2 (-1) 0
                         let stepY = if dy > 0 then V2 0 1 else V2 0 (-1)
-                        -- Moverse en el eje más lejano
                         let moveDirVec = if abs dx > abs dy then stepX else stepY
                         let newDir = vecToDir moveDirVec
                         let nextPos = curr + (screenSize *^ moveDirVec)
-                        
-                        -- Chequear colisiones
                         let chocaEnt = chocaConEntidad nextPos (enemies stInicial) || nextPos == entPos pj
 
                         if not (esMuro nextPos (currentMap stInicial)) && not chocaEnt
@@ -498,57 +424,44 @@ actualizarEnemigos ticks = do
                             else return eConEstado
                     else return eConEstado
             else do
-                -- == MODO PATRULLA / IDLE (Restaurado) ==
                 if entIsMoving eConEstado
                 then return eConEstado
                 else do
                     if ticks < entPatrolTimer eConEstado
                     then do
-                        -- Si sigue en timer de patrulla, intentar moverse a donde mira
                         let dirVec = getDirVec (entDir eConEstado)
                         let nextPos = curr + (screenSize *^ dirVec)
                         let chocaEnt = chocaConEntidad nextPos (enemies stInicial) || nextPos == entPos pj
-
-                        -- CORRECCIÓN AQUÍ TAMBIÉN:
                         if not (esMuro nextPos (currentMap stInicial)) && not chocaEnt
                         then return eConEstado { entTarget = nextPos, entIsMoving = True }
                         else return eConEstado { entPatrolTimer = 0 }
                     else do
-                        -- IA Aleatoria: Decidir si caminar o esperar
                         let accion = randomRango 0 10 (ticks + fromIntegral (entHp eConEstado))
-
-                        if accion > 2 -- 70% probabilidad de caminar
+                        if accion > 2 
                         then do
                             let dirRnd = randomRango 0 3 (ticks * 3)
-                            let newDir = case dirRnd of
-                                            0 -> Arriba; 1 -> Abajo; 2 -> Izquierda; _ -> Derecha
+                            let newDir = case dirRnd of 0 -> Arriba; 1 -> Abajo; 2 -> Izquierda; _ -> Derecha
                             let tiempoCaminar = randomRango 1000 3000 ticks
                             return eConEstado { entDir = newDir, entPatrolTimer = ticks + fromIntegral tiempoCaminar }
                         else do
-                            -- Esperar quieto
                             let tiempoEspera = randomRango 500 1500 ticks
                             return eConEstado { entPatrolTimer = ticks + fromIntegral tiempoEspera }
 
             return eConAccion
 
-    -- Aplicar movimiento real
     enemigosMovidos <- mapM (\e -> if entIsMoving e && not (entDead e) then updateEntityMovement e else return e) nuevosEnemigos
-
     modify $ \s -> s { enemies = enemigosMovidos }
 
-
 -- ==========================================
--- 5. INPUT HANDLING (Q/W IMPLEMENTADO)
+-- 5. INPUT HANDLING
 -- ==========================================
 
 isQuitEvent :: SDL.EventPayload -> Bool
 isQuitEvent SDL.QuitEvent = True
--- CAMBIA LA Q POR ESCAPE:
 isQuitEvent (SDL.KeyboardEvent k) = 
     SDL.keyboardEventKeyMotion k == SDL.Pressed && 
     SDL.keysymKeycode (SDL.keyboardEventKeysym k) == SDL.KeycodeEscape
 isQuitEvent _ = False
-
 
 isLeftMouseClick :: SDL.EventPayload -> Bool
 isLeftMouseClick (SDL.MouseButtonEvent m) =
@@ -560,21 +473,19 @@ handleTitleEvents events ticks = do
     let quit = any isQuitEvent events
     when quit $ modify $ \s -> s { shouldExit = True }
 
-    -- DETECTAR TECLAS 1, 2, 3, 4 PARA CAMBIAR CLASE
     let key1 = isKey SDL.Keycode1 events
     let key2 = isKey SDL.Keycode2 events
     let key3 = isKey SDL.Keycode3 events
     let key4 = isKey SDL.Keycode4 events
 
     st <- get
-    let currentPos = entPos (player st) -- Mantenemos la posición original
+    let currentPos = entPos (player st) 
 
     when key1 $ modify $ \s -> s { player = createPlayer Hero currentPos }
     when key2 $ modify $ \s -> s { player = createPlayer Paladin currentPos }
     when key3 $ modify $ \s -> s { player = createPlayer Bruja currentPos }
     when key4 $ modify $ \s -> s { player = createPlayer Chamana currentPos }
 
-    -- DETECTAR CLIC EN JUGAR
     let mouseClick = find isLeftMouseClick events
     case mouseClick of
         Just (SDL.MouseButtonEvent m) -> do
@@ -595,40 +506,29 @@ handlePlayingEvents :: [SDL.EventPayload] -> Word32 -> Game ()
 handlePlayingEvents events ticks = do
     st <- get
     let pj = player st
-    
-    -- 1. Detectar Quit
     let quit = any isQuitEvent events
     when quit $ modify $ \s -> s { shouldExit = True }
 
-    -- 2. Detectar Ataques (Q y W)
     let keyQ = isKey SDL.KeycodeQ events
     let keyW = isKey SDL.KeycodeW events
     
-    -- Ejecutar ataque si no está en cooldown y no está atacando ya
     when (ticks > entCooldown pj && entAttackType pj == NoAttack) $ do
         if keyQ then realizarAtaque AtkNormal ticks
         else if keyW then realizarAtaque AtkArea ticks
         else return ()
 
-    -- 3. Movimiento (Flechas)
-    -- Solo mover si NO está atacando (para que se quede quieto al pegar)
     unless (entIsMoving pj || entDead pj || entAttackType pj /= NoAttack) $ do
         let (inputDir, hasInput) = foldl checkInput (V2 0 0, False) events
         when hasInput $ do
             let nuevaDir = determineDir inputDir
-            -- Si cambia de dirección, solo girar
             if nuevaDir /= entDir pj
                 then modify $ \s -> s { player = pj { entDir = nuevaDir } }
                 else do
-                    -- Si mantiene dirección, avanzar
                     let nextTile = entPos pj + (screenSize *^ inputDir)
-                    
-                    -- CORRECCIÓN AQUÍ: Agrega (currentMap st) después de nextTile
                     unless (esMuro nextTile (currentMap st) || chocaConEntidad nextTile (enemies st)) $ do
                         modify $ \s -> s { player = pj { entTarget = nextTile, entIsMoving = True } }
 
   where
-    -- Helper limpio para detectar teclas
     isKey code evs = any (\e -> case e of 
         SDL.KeyboardEvent k -> SDL.keyboardEventKeyMotion k == SDL.Pressed && SDL.keysymKeycode (SDL.keyboardEventKeysym k) == code
         _ -> False) evs
@@ -649,89 +549,60 @@ handleEvents events ticks = do
     mode <- gets gameMode
     case mode of
         TitleScreen -> handleTitleEvents events ticks 
-        
         Playing     -> handlePlayingEvents events ticks
         GameOver    -> return ()
+
 -- ==========================================
 -- 6. UPDATE LOOP
 -- ==========================================
--- En src/Logic.hs
 
 resetGame :: Game ()
 resetGame = do
     st <- get
     let pj = player st
     
-    -- 1. Resetear al Jugador
     let pjReset = pj { 
-        entHp = entMaxHp pj, 
-        entDead = False, 
-        entPos = entOrigin pj, 
-        entTarget = entOrigin pj, 
-        entIsMoving = False,
-        entAttackType = NoAttack, -- Aseguramos que no empiece atacando
-        entAttackTimer = 0
+        entHp = entMaxHp pj, entDead = False, 
+        entPos = entOrigin pj, entTarget = entOrigin pj, entIsMoving = False,
+        entAttackType = NoAttack, entAttackTimer = 0
     }
 
-    -- 2. Resetear a los Enemigos
     let enemiesReset = map (\e -> e { 
-        entHp = entMaxHp e, 
-        entDead = False, 
-        entPos = entOrigin e, 
-        entAggro = False,
-        entAttackType = NoAttack,
-        entAttackTimer = 0
+        entHp = entMaxHp e, entDead = False, 
+        entPos = entOrigin e, entAggro = False,
+        entAttackType = NoAttack, entAttackTimer = 0
     }) (enemies st)
 
-    -- 3. Guardar todo en el estado (Incluyendo gameStartTime = 0)
     modify $ \s -> s { 
-        player = pjReset, 
-        enemies = enemiesReset, 
-        gameMode = TitleScreen, 
-        gameLog = ["¡Nueva Partida!"],
-        gameStartTime = 0,
-        currentLevel = 1,
-        currentMap   = mapaNivel1
-
+        player = pjReset, enemies = enemiesReset, 
+        gameMode = TitleScreen, gameLog = ["¡Nueva Partida!"],
+        gameStartTime = 0, currentLevel = 1, currentMap = mapaNivel1
     }
+
 updateGame :: Word32 -> Game ()
 updateGame ticks = do
+    -- Eliminado bloque de música roto que dependía de rMusicTitle
     mode <- gets gameMode
     case mode of
         Playing -> do
-            -- 1. GUARDAR EL NIVEL ACTUAL ANTES DE CHEQUEAR
             stAntes <- get
             let nivelAntes = currentLevel stAntes
-
-            -- 2. CHEQUEAR ESCALERAS
             checkStairs 
-            
-            -- 3. OBTENER EL ESTADO NUEVO (POST-ESCALERA)
             stDespues <- get
             let nivelDespues = currentLevel stDespues
 
-            -- 4. LOGICA DE SEGURIDAD
-            -- Si el nivel cambió, NO calculamos movimiento en este frame.
-            -- Esto evita que la lógica vieja sobreescriba la nueva posición (30, 4).
             if nivelAntes /= nivelDespues 
             then return () 
             else do
-                -- Si seguimos en el mismo nivel, procedemos normal,
-                -- PERO usamos 'stDespues' para tener los datos más frescos.
                 let pj = player stDespues 
-                
-                -- Movimiento
                 pjMovido <- if entIsMoving pj then updateEntityMovement pj else return pj
                 let pjRegen = regenerarVida pjMovido ticks
                 let pjAnim = updateEntityAnimation pjRegen ticks
-                
-                -- Resetear ataque
                 let pjFinal = if entAttackType pjAnim /= NoAttack && ticks >= entAttackTimer pjAnim
                               then pjAnim { entAttackType = NoAttack }
                               else pjAnim
                 
                 modify $ \s -> s { player = pjFinal }
-                
                 pickUpItem ticks
                 checkBuffs ticks
                 actualizarEnemigos ticks
@@ -740,8 +611,6 @@ updateGame ticks = do
             st <- get
             if ticks > gameOverTimer st + 5000 then resetGame else return ()
         _ -> return ()
-
-
 
 -- Helpers faltantes
 vecToDir :: V2 CInt -> Direccion
@@ -756,7 +625,6 @@ esMuro (V2 pixelX pixelY) mapaActual =
         fuera = y < 0 || y >= h || x < 0 || x >= w
     in if fuera then True else (mapaActual !! y !! x) == tilePared
 
-
 chocaConEntidad :: V2 CInt -> [Entity] -> Bool
 chocaConEntidad pos ents = any (\e -> entPos e == pos && not (entDead e)) ents
 
@@ -767,10 +635,31 @@ updateEntityMovement e = do
     let diff = dest ^-^ curr
     let dist = distL1 curr dest
     let speed = entSpeed e
+    
     if dist <= speed
         then return e { entPos = dest, entIsMoving = False }
         else do
             let (V2 dx dy) = diff
             let signumVec = V2 (signum dx) (signum dy)
             let step = speed *^ signumVec
-            return e { entPos = curr + step }
+            
+            st <- get
+            ticks <- liftIO SDL.ticks
+            let res = resources st
+            let eConSonido = if isPlayerClass (entClass e) && ticks > entStepTimer e
+                then e { entStepTimer = ticks + 350 } 
+                else e
+
+            when (entStepTimer eConSonido > entStepTimer e) $ do
+                liftIO $ case rSfxStep res of
+                    Just sfx -> Mixer.play sfx  -- Corregido: Mixer.play
+                    Nothing  -> return ()
+
+            return eConSonido { entPos = curr + step }
+
+isPlayerClass :: Clase -> Bool
+isPlayerClass Hero    = True
+isPlayerClass Paladin = True
+isPlayerClass Bruja   = True
+isPlayerClass Chamana = True
+isPlayerClass _       = False
