@@ -75,6 +75,8 @@ main = do
 
     let startPos = V2 (54 * screenSize) (20 * screenSize)
 
+    let jugador = createPlayer Hero startPos
+
     let allFloorPositions = getFloorPositions mapaSuelo
 
     let itemsToSpawn = [ PotionFuerza, PotionFuerza
@@ -85,34 +87,6 @@ main = do
 
     randomItems <- createRandomItems itemsToSpawn allFloorPositions
 
-    let jugador = Entity {
-        entPos = startPos, entTarget = startPos, entOrigin = startPos,
-        entDir = Izquierda, entIsMoving = False, entAnimFrame = 0, entAnimTimer = 0,
-        entSpeed = 12,
-
-        entClass = Guerrero,
-        entHp = 20, entMaxHp = 20,
-        entMinAtk = 6, entMaxAtk = 8,
-
-        entXp = 0, entLevel = 1, entNextLevel = 100,
-        entCooldown = 0, entAggro = False,
-
-        entPatrolTimer = 0,
-        entDead = False, entDeathTick = 0, entRegenTick = 0,
-
-        entBuffAtkEnd = 0,     -- Nuevo: Fin de Puño más fuerte
-        entBuffSpdEnd = 0,     -- Nuevo: Fin de Velocidad
-        entInvisible  = False, -- Nuevo: Estado de Invisibilidad
-        entInvEnd     = 0,     -- Nuevo: Fin de Invisibilidad
-
-        entBaseMinAtk = 6,
-        entBaseMaxAtk = 8,
-        entBaseSpeed = 8,
-
-        entAttackType  = NoAttack, 
-        entAttackTimer = 0
-
-    }
     let orcoPos = V2 (10 * screenSize) (45 * screenSize)
     let orco = Entity {
         entPos = orcoPos, entTarget = orcoPos, entOrigin = orcoPos,
@@ -211,7 +185,8 @@ main = do
         gameMode    = TitleScreen,
         menuSelection = 0,
         gameStartTime = 0,
-        gameOverTimer = 0 -- Inicializado en 0
+        gameOverTimer = 0, -- Inicializado en 0
+        encounteredTypes = []
     }
 
     runStateT gameLoop estadoInicial

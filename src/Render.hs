@@ -2,7 +2,7 @@ module Render where
 
 import qualified SDL
 import qualified SDL.Font
-import Linear (V2(..), V4(..), (^-^), (^+^))
+import Linear (V2(..), V3(..), V4(..), (^-^), (^+^))
 import Linear.Affine (Point(..))
 import Control.Monad.State
 import Control.Monad (when, forM_, unless, forM)
@@ -16,10 +16,11 @@ import Config
 import Maps
 
 characterIndexFromClass :: Clase -> CInt
-characterIndexFromClass Guerrero = 0
-characterIndexFromClass Mago     = 1
-characterIndexFromClass Asesino  = 5
-characterIndexFromClass Orco     = 3
+characterIndexFromClass Hero    = 0
+characterIndexFromClass Paladin = 0
+characterIndexFromClass Bruja   = 0
+characterIndexFromClass Chamana = 0
+characterIndexFromClass Orco    = 3
 characterIndexFromClass Esqueleto = 4
 characterIndexFromClass Zombie    = 4
 characterIndexFromClass Vaca      = 4
@@ -40,10 +41,11 @@ itemTilesetCols = 8
 
 
 isPlayerClass :: Clase -> Bool
-isPlayerClass Guerrero = True
-isPlayerClass Mago     = True
-isPlayerClass Asesino  = True
-isPlayerClass _        = False
+isPlayerClass Hero    = True
+isPlayerClass Paladin = True
+isPlayerClass Bruja   = True
+isPlayerClass Chamana = True
+isPlayerClass _       = False
 
 -- NUEVA FUNCIÓN DE RECORTE: Usa 8 columnas en lugar de tilesetCols (6)
 getItemTileRect :: Int -> Maybe (SDL.Rectangle CInt)
@@ -224,163 +226,127 @@ renderHUD r (Just font) pj = do
     drawLine (controlsY + 3 * lineHeight) "Daño por espalda x1.5" colorControls
 
 
-
 renderEntity :: SDL.Renderer -> M.Map String SDL.Texture -> Entity -> V2 CInt -> Game ()
 renderEntity r texs ent cameraOffset = do
     let entClass' = entClass ent
     let tileScreenPos = entPos ent ^-^ cameraOffset
 
-    -- =======================================================
-    -- BLOQUE 1: PERSONAJE (96px, Alineado al fondo)
-    -- =======================================================
-    
+    -- 1. CALCULAR POSICIÓN
     let offsetX = (screenSize - entityRenderSize) `div` 2
-    let offsetY = screenSize - entityRenderSize -- Pies en la base (-32px Y)
-    
+    let offsetY = screenSize - entityRenderSize -- Pies en la base
     let heroDrawPos = tileScreenPos + V2 offsetX offsetY
     let destRect = SDL.Rectangle (P heroDrawPos) (V2 entityRenderSize entityRenderSize)
 
-    let (texKey, frameIndex) = case entClass' of
-                                    Guerrero -> ("hero", entAnimFrame ent)
-                                    Orco     -> ("ogre", entAnimFrame ent)
-                                    Zombie   -> ("zombie", entAnimFrame ent)
-                                    Vaca     -> ("cow", entAnimFrame ent)
-                                    _        -> ("hero", entAnimFrame ent)
+    -- 2. SELECCIONAR LA TEXTURA CORRECTA
+    -- Aquí asignamos cada clase a su archivo cargado en Assets.hs
+    let (texKey, _) = case entClass' of
+            Hero    -> ("hero", entAnimFrame ent)
+            Paladin -> ("paladin", entAnimFrame ent) -- ¡Usa paladin.png!
+            Bruja   -> ("bruja", entAnimFrame ent)   -- ¡Usa bruja.png!
+            Chamana -> ("chamana", entAnimFrame ent) -- ¡Usa chamana.png!
+            
+            -- Enemigos
+            Orco    -> ("ogre", entAnimFrame ent)
+            Zombie  -> ("zombie", entAnimFrame ent)
+            Vaca    -> ("cow", entAnimFrame ent)
+            _       -> ("hero", entAnimFrame ent)
 
+    -- 3. DIBUJAR (Sin tintes raros, color natural)
     case M.lookup texKey texs of
         Nothing -> return ()
         Just tex -> do
             let cellSize = case texKey of "cow" -> 48; _ -> 32
+            
+            -- Dirección del sprite (0:Abajo, 1:Izq, 2:Arriba, 3:Der)
             let row = case entDir ent of Abajo -> 0; Izquierda -> 1; Arriba -> 2; Derecha -> 3
             let col = fromIntegral (entAnimFrame ent)
             let srcRect = SDL.Rectangle (P (V2 (col * cellSize) (row * cellSize))) (V2 cellSize cellSize)
 
+            -- Manejo de transparencia (Invisibilidad)
             let alphaValue = if entInvisible ent then 128 else 255
             SDL.textureAlphaMod tex SDL.$= (fromIntegral alphaValue)
+
+            -- ¡DIBUJAR! (Ya no usamos textureColorMod porque tenemos los sprites reales)
             SDL.copy r tex (Just srcRect) (Just destRect)
+            
+            -- Restaurar Alpha por si acaso
             SDL.textureAlphaMod tex SDL.$= 255
 
-    -- =======================================================
-    -- BLOQUE 2: ESCUDO (Centrado Perfecto y Estable)
-    -- =======================================================
-    
+    -- 4. DIBUJAR ESCUDO (Solo clases jugables)
     when (isPlayerClass entClass' && not (entDead ent)) $ do
         case M.lookup "shield" texs of
             Nothing -> return ()
             Just texShield -> do
-                
-                -- Dimensiones: 100 ancho x 80 alto (Proporción correcta)
-                let shieldW = 100
-                let shieldH = 80
+                let shieldW = 100; shieldH = 80
                 let shieldSize = V2 shieldW shieldH
                 
-                -- Ángulo de rotación
                 let angle :: CDouble
                     angle = case entDir ent of
-                        Arriba    -> 0
-                        Derecha   -> 90
-                        Abajo     -> 180
-                        Izquierda -> 270
+                        Arriba -> 0; Derecha -> 90; Abajo -> 180; Izquierda -> 270
 
-                -- POSICIÓN FIJA (Sin 'case' para offsets manuales)
-                
-                -- 1. Centramos el escudo (100x80) sobre el sprite del héroe (96x96)
                 let centerOffsetX = (entityRenderSize - shieldW) `div` 2
                 let centerOffsetY = (entityRenderSize - shieldH) `div` 2
+                let verticalShift = case entDir ent of Arriba -> 16; Abajo -> 24; _ -> 20
                 
-
-                let verticalShift = case entDir ent of
-                        Arriba -> 16 
-                        Abajo -> 24
-                        _     -> 20
-                -- Posición final constante
                 let finalShieldPos = heroDrawPos + V2 centerOffsetX (centerOffsetY + verticalShift)
-                
                 let destRectShield = SDL.Rectangle (P finalShieldPos) shieldSize
 
-                -- Renderizado
-                let alphaValue = if entInvisible ent then 60 else 160
-
-                SDL.textureAlphaMod texShield SDL.$= (fromIntegral alphaValue)
-
+                let alphaVal = if entInvisible ent then 60 else 160
+                SDL.textureAlphaMod texShield SDL.$= (fromIntegral alphaVal)
                 SDL.copyEx r texShield Nothing (Just destRectShield) angle Nothing (SDL.V2 False False)
-                
                 SDL.textureAlphaMod texShield SDL.$= 255
 
-    -- =======================================================
-    -- BLOQUE 3: BARRA DE VIDA
-    -- =======================================================
-    
+    -- 5. BARRA DE VIDA
     when (entHp ent < entMaxHp ent || entAggro ent) $ do
-        let barPos = tileScreenPos + V2 0 (-106)
+        let barPos = tileScreenPos + V2 0 (-10)
         drawHealthBar r barPos (entHp ent) (entMaxHp ent)
 
-    -- =======================================================
-    -- BLOQUE 4: DEBUG DE ATAQUE (CAJAS ROJAS)
-    -- =======================================================
-    
+    -- 6. DEBUG DE ATAQUE (CAJAS ROJAS)
     let atkType = entAttackType ent
-    
-    -- Solo dibujar si hay un ataque activo
     when (atkType /= NoAttack) $ do
-        
-        -- 1. CONFIGURAR DIBUJO ROJO TRANSPARENTE
-        -- Guardamos el modo de mezcla anterior para no romper nada
         oldBlend <- SDL.get (SDL.rendererDrawBlendMode r)
-        
-        -- Activamos mezcla (Alpha Blending) para que sea transparente
         SDL.rendererDrawBlendMode r SDL.$= SDL.BlendAlphaBlend
-        
-        -- Color Rojo: R=255, G=0, B=0, Alpha=150 (Semitransparente)
         SDL.rendererDrawColor r SDL.$= V4 255 0 0 150
 
-        -- 2. CALCULAR DÓNDE DIBUJAR LA CAJA
         case atkType of
-            
-            -- CASO Q: Cuadrado frente al jugador
             AtkNormal -> do
                 let offset = case entDir ent of
-                        Arriba    -> V2 0 (-screenSize) -- Una casilla arriba (-64)
-                        Abajo     -> V2 0 screenSize    -- Una casilla abajo (+64)
-                        Izquierda -> V2 (-screenSize) 0
-                        Derecha   -> V2 screenSize 0
-                
-                -- tileScreenPos es la esquina de TU casilla. Le sumamos el offset.
+                        Arriba -> V2 0 (-screenSize); Abajo -> V2 0 screenSize
+                        Izquierda -> V2 (-screenSize) 0; Derecha -> V2 screenSize 0
                 let attackPos = tileScreenPos + offset
-                
-                -- Dibujamos un cuadrado del tamaño de una casilla (64x64)
                 let rect = SDL.Rectangle (P attackPos) (V2 screenSize screenSize)
                 SDL.fillRect r (Just rect)
 
-            -- CASO W: Área grande centrada
             AtkArea -> do
-                -- Queremos un área de radio 100 (aprox 3 casillas de ancho total)
-                let areaSize = 200 -- 100 de radio x 2
-                
-                -- Calculamos el centro para que quede sobre el jugador
-                -- (64 - 200) / 2 = -68. 
+                let areaSize = 200 
                 let offset = (screenSize - areaSize) `div` 2
                 let attackPos = tileScreenPos + V2 offset offset
-                
                 let rect = SDL.Rectangle (P attackPos) (V2 areaSize areaSize)
                 SDL.fillRect r (Just rect)
-            
             _ -> return ()
 
-        -- 3. RESTAURAR ESTADO (IMPORTANTE)
-        -- Volvemos al modo de mezcla normal y color blanco/negro por defecto
         SDL.rendererDrawBlendMode r SDL.$= oldBlend
         SDL.rendererDrawColor r SDL.$= V4 0 0 0 255
 
-
-drawTitleScreen :: SDL.Renderer -> M.Map String SDL.Texture -> Int -> Game ()
-drawTitleScreen r texs sel = do
+drawTitleScreen :: SDL.Renderer -> Maybe SDL.Font.Font -> M.Map String SDL.Texture -> Entity -> Game ()
+drawTitleScreen r Nothing texs _ = return () -- Si falla la fuente
+drawTitleScreen r (Just font) texs pj = do
+    -- Fondo
     case M.lookup "background" texs of
         Just bgTex -> SDL.copy r bgTex Nothing Nothing
-        Nothing -> do
-            SDL.rendererDrawColor r SDL.$= V4 0 0 50 255
-            SDL.clear r
-    return()
+        Nothing -> SDL.clear r
+    
+    -- Texto de Selección
+    let claseNombre = show (entClass pj)
+    let infoTxt = "Clase actual: " ++ claseNombre ++ " (Usa 1-4 para cambiar)"
+    let color = V4 255 255 255 255
+    
+    -- Renderizamos texto en la parte inferior o superior
+    renderText r font 50 50 infoTxt color
+    
+    -- Mostrar stats breves
+    let statsTxt = "HP: " ++ show (entMaxHp pj) ++ " | ATK: " ++ show (entMinAtk pj) ++ "-" ++ show (entMaxAtk pj) ++ " | SPD: " ++ show (entSpeed pj)
+    renderText r font 50 80 statsTxt color
 
 -- NUEVO: Dibujar Pantalla de Game Over
 drawGameOverScreen :: SDL.Renderer -> M.Map String SDL.Texture -> Game ()
@@ -405,7 +371,7 @@ render = do
     -- 1. CASO PRINCIPAL: MANEJO DEL MODO DE JUEGO
     case mode of
         TitleScreen -> do
-            drawTitleScreen r (rTextures res) (menuSelection st)
+            drawTitleScreen r (rFont res) (rTextures res) (player st)
             SDL.present r
 
         GameOver -> do

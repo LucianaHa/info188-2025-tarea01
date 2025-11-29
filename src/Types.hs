@@ -27,7 +27,7 @@ data GameMode = TitleScreen | Playing | GameOver
 data Direccion = Abajo | Izquierda | Derecha | Arriba
     deriving (Show, Eq)
 
-data Clase = Guerrero | Mago | Asesino | Orco | Esqueleto | Zombie | Vaca
+data Clase = Hero | Paladin | Bruja | Chamana | Orco | Esqueleto | Zombie | Vaca
     deriving (Show, Eq)
 
 data AttackType = NoAttack | AtkNormal | AtkArea
@@ -99,8 +99,8 @@ data GameState = GameState {
     gameMode    :: GameMode,
     menuSelection :: Int,
     gameStartTime :: Word32,
-    -- AÑADIDO: Para contar los 5 segundos de Game Over
-    gameOverTimer :: Word32
+    gameOverTimer :: Word32,
+    encounteredTypes :: [Clase]
 }
 
 type Game = StateT GameState IO

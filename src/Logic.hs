@@ -85,6 +85,62 @@ isClickInside (V2 clickX clickY) rectX rectY rectW rectH =
 -- 2. COMBATE Y XP (NUEVO SISTEMA Q/W)
 -- ==========================================
 
+createPlayer :: Clase -> V2 CInt -> Entity
+createPlayer cls pos = Entity {
+    entPos = pos, entTarget = pos, entOrigin = pos,
+    entDir = Abajo, entIsMoving = False, entAnimFrame = 0, entAnimTimer = 0,
+    
+    -- Stats variables según la clase
+    entSpeed = case cls of
+        Chamana -> 15 -- Muy rápida
+        Bruja   -> 11
+        Paladin -> 9  -- Lento
+        _       -> 12, -- Hero (Estándar)
+
+    entClass = cls,
+    
+    entMaxHp = case cls of
+        Paladin -> 35 -- Tanque
+        Hero    -> 20
+        Chamana -> 16
+        Bruja   -> 12 -- Frágil
+        _       -> 20,
+    entHp = case cls of Paladin -> 35; Chamana -> 16; Bruja -> 12; _ -> 20,
+
+    entMinAtk = case cls of Bruja -> 9; Chamana -> 5; Paladin -> 4; _ -> 6,
+    entMaxAtk = case cls of Bruja -> 14; Chamana -> 7; Paladin -> 6; _ -> 8,
+
+    -- Cooldown base (velocidad de ataque)
+    entCooldown = 0, 
+    entBaseSpeed = case cls of Chamana -> 15; Bruja -> 11; Paladin -> 9; _ -> 12,
+    entBaseMinAtk = case cls of Bruja -> 9; Chamana -> 5; Paladin -> 4; _ -> 6,
+    entBaseMaxAtk = case cls of Bruja -> 14; Chamana -> 7; Paladin -> 6; _ -> 8,
+
+    -- Valores comunes
+    entXp = 0, entLevel = 1, entNextLevel = 100,
+    entAggro = False, entPatrolTimer = 0,
+    entDead = False, entDeathTick = 0, entRegenTick = 0,
+    entBuffAtkEnd = 0, entBuffSpdEnd = 0, entInvisible = False, entInvEnd = 0,
+    entAttackType = NoAttack, entAttackTimer = 0
+}
+
+registrarEncuentro :: Clase -> Game ()
+registrarEncuentro cls = do
+    st <- get
+    let yaVisto = cls `elem` encounteredTypes st
+    
+    unless yaVisto $ do
+        -- Mensajes personalizados según el enemigo
+        let msg = case cls of
+                Orco   -> "¡UN ORCO! Para mi mala suerte..."
+                Vaca   -> "Uh eso es... ¿¿¡¡¿¿UNA VACA!!??"
+                Zombie -> "¡ZOMBIE! Es lento pero persistente."
+                _      -> "¡Un nuevo enemigo aparece!"
+        
+        agregarLog msg
+        -- Guardamos que ya lo vimos para no repetir el mensaje
+        modify $ \s -> s { encounteredTypes = cls : encounteredTypes s }
+
 -- Función principal de ataque (Reemplaza a la antigua 'atacar')
 realizarAtaque :: AttackType -> Word32 -> Game ()
 realizarAtaque tipo ticks = do
@@ -114,6 +170,8 @@ realizarAtaque tipo ticks = do
 
     -- 4. Aplicar Daño y ACUMULAR XP
     unless (null victimas) $ do
+
+        forM_ victimas $ \v -> registrarEncuentro (entClass v)
         
         -- Usamos mapAccumL o fold para procesar enemigos y sumar XP al mismo tiempo
         -- Pero para hacerlo simple: Procesamos enemigos primero, luego sumamos XP.
@@ -297,6 +355,7 @@ actualizarEnemigos ticks = do
                 then do
                     if ticks > entCooldown eConEstado
                     then do
+                        registrarEncuentro (entClass eConEstado)
                         -- Daño simple directo al jugador
                         stCurr <- get
                         let pjCurr = player stCurr
@@ -394,20 +453,38 @@ handleTitleEvents :: [SDL.EventPayload] -> Word32 -> Game ()
 handleTitleEvents events ticks = do
     let quit = any isQuitEvent events
     when quit $ modify $ \s -> s { shouldExit = True }
+
+    -- DETECTAR TECLAS 1, 2, 3, 4 PARA CAMBIAR CLASE
+    let key1 = isKey SDL.Keycode1 events
+    let key2 = isKey SDL.Keycode2 events
+    let key3 = isKey SDL.Keycode3 events
+    let key4 = isKey SDL.Keycode4 events
+
+    st <- get
+    let currentPos = entPos (player st) -- Mantenemos la posición original
+
+    when key1 $ modify $ \s -> s { player = createPlayer Hero currentPos }
+    when key2 $ modify $ \s -> s { player = createPlayer Paladin currentPos }
+    when key3 $ modify $ \s -> s { player = createPlayer Bruja currentPos }
+    when key4 $ modify $ \s -> s { player = createPlayer Chamana currentPos }
+
+    -- DETECTAR CLIC EN JUGAR
     let mouseClick = find isLeftMouseClick events
     case mouseClick of
         Just (SDL.MouseButtonEvent m) -> do
             let (P (V2 rawX rawY)) = SDL.mouseButtonEventPos m
             let clickPos = V2 (fromIntegral rawX) (fromIntegral rawY)
             if isClickInside clickPos btnX btnYJugar btnW btnH
-                -- AQUÍ: Al dar click en Jugar, guardamos 'ticks' en 'gameStartTime'
                 then modify $ \s -> s { gameMode = Playing, gameStartTime = ticks }
                 else if isClickInside clickPos btnX btnYSalir btnW btnH
                      then modify $ \s -> s { shouldExit = True }
                      else return ()
         _ -> return ()
+  where
+    isKey code evs = any (\e -> case e of 
+        SDL.KeyboardEvent k -> SDL.keyboardEventKeyMotion k == SDL.Pressed && SDL.keysymKeycode (SDL.keyboardEventKeysym k) == code
+        _ -> False) evs
 
--- AQUÍ ESTÁ EL CAMBIO PRINCIPAL DE TECLAS
 handlePlayingEvents :: [SDL.EventPayload] -> Word32 -> Game ()
 handlePlayingEvents events ticks = do
     st <- get
