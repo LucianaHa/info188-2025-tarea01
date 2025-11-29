@@ -15,7 +15,7 @@
 ## 1. Descripción del Proyecto
 
 **Objetivo Principal:**
-[cite_start]El jugador está encerrado en una mazmorra y busca sobrevivir a hordas de Orcos y Zombies, acumular experiencia para subir de nivel y finalmente derrotar a la "Vaca Sagrada", el jefe final del nivel para poder escapar y salir a la superficie.[cite: 12].
+El jugador está encerrado en una mazmorra y busca sobrevivir a hordas de Orcos y Zombies, acumular experiencia para subir de nivel y finalmente derrotar a la "Vaca Sagrada", el jefe final del nivel para poder escapar y salir a la superficie..
 
 ---
 
