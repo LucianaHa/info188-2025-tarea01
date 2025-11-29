@@ -230,3 +230,7 @@ Este proyecto fue desarrollado integrando conocimientos de la asignatura con her
 * **Sprites y Tilesets:** Los recursos visuales, incluyendo los sprites animados de los personajes (Héroe, Bruja, Chamana, Paladín), los enemigos (Orco, Zombie, Vaca) y los tiles del mapa, fueron obtenidos de la librería de assets de la aplicación gratuita **RPG Paper Maker**.
 * **Motor Gráfico:** Renderizado realizado mediante la librería [SDL2](https://www.libsdl.org/) y sus bindings para Haskell (`sdl2`, `sdl2-image`, `sdl2-ttf`).
 
+### Recursos de Audio
+* Música: El tema de la pantalla de título ("Title Screen") fue compuesto por Irrational Machines, parte del "RPG Title Screen Music Pack" obtenido en OpenGameArt.org (Licencia CC-BY 4.0).
+
+* Motor de Audio: Reproducción gestionada mediante la librería SDL2-Mixer.
