@@ -19,6 +19,45 @@ import Maps
 -- 1. UTILIDADES
 -- ==========================================
 
+-- Se ajusta la duración de los items
+buffDuration :: Word32
+buffDuration = 10000 --ms
+
+-- src/Logic.hs (Añadir este bloque)
+
+checkBuffs :: Word32 -> Game ()
+checkBuffs ticks = do
+    st <- get
+    let pj = player st
+
+    -- Aplicamos los buffs. Si la entidad cambia, actualizamos el estado.
+    let newPj = checkBuffs' ticks pj
+
+    when (newPj /= pj) $ do
+        modify $ \s -> s { player = newPj }
+
+checkBuffs' :: Word32 -> Entity -> Entity
+checkBuffs' ticks pj =
+    let
+        -- Reiniciar Fuerza si expiró
+        newPjFuerza = if entBuffAtkEnd pj /= 0 && ticks >= entBuffAtkEnd pj
+            then pj { entBuffAtkEnd = 0 }
+            else pj
+
+        -- Reiniciar Velocidad si expiró
+        newPjVelocidad = if entBuffSpdEnd newPjFuerza /= 0
+            then if ticks >= entBuffSpdEnd newPjFuerza -- 1. COMPROBAR SOLO EXPIRACIÓN
+                then newPjFuerza { entBuffSpdEnd = 0, entSpeed = 8 } -- Restaurar a 8
+                else newPjFuerza { entSpeed = 16 } -- 2. Aplicar BUFF: Velocidad 16
+            else newPjFuerza { entSpeed = 8 } -- 3. No estaba activo, asegurar velocidad base
+
+        -- Reiniciar Invisibilidad si expiró
+        newPjInv = if entInvEnd newPjVelocidad /= 0 && ticks >= entInvEnd newPjVelocidad
+            then newPjVelocidad { entInvisible = False, entInvEnd = 0 }
+            else newPjVelocidad
+
+    in newPjInv
+
 distL1 :: V2 CInt -> V2 CInt -> CInt
 distL1 (V2 x1 y1) (V2 x2 y2) = abs (x1 - x2) + abs (y1 - y2)
 
@@ -61,6 +100,14 @@ atacar ticks = do
     let pj = player st
 
     when (ticks > entCooldown pj && not (entDead pj)) $ do
+        let (bonusMin, bonusMax) = if entBuffAtkEnd pj > ticks -- Si la expiración es mayor que el tiempo actual
+                                   then (5, 8) -- Aumenta el daño en 5/8 (ejemplo)
+                                   else (0, 0)
+
+        let finalMinAtk = (entMinAtk pj) + bonusMin
+        let finalMaxAtk = (entMaxAtk pj) + bonusMax
+
+        let danoConBuff = randomRango finalMinAtk finalMaxAtk ticks
         let dirVec = getDirVec (entDir pj)
         let zonaAtaque = entPos pj + (screenSize *^ dirVec)
 
@@ -70,8 +117,7 @@ atacar ticks = do
         case enemigoGolpeado of
             Nothing -> return ()
             Just enemigo -> do
-                let dano = randomRango (entMinAtk pj) (entMaxAtk pj) ticks
-                let nuevaVida = max 0 (entHp enemigo - dano)
+                let nuevaVida = max 0 (entHp enemigo - danoConBuff)
                 let estaMuerto = nuevaVida == 0
 
                 let enemigoActualizado = if estaMuerto
@@ -89,7 +135,7 @@ atacar ticks = do
 
                 modify $ \s -> s { player = pjFinal, enemies = nuevaLista }
 
-                agregarLog $ "Golpeaste por " ++ show dano ++ " dmg."
+                agregarLog $ "Golpeaste por " ++ show danoConBuff ++ " dmg."
                 when estaMuerto $ agregarLog $ "¡Enemigo derrotado! +" ++ show (entXp enemigo) ++ " XP."
                 when (pjLvlMsg /= "") $ agregarLog pjLvlMsg
 
@@ -108,6 +154,54 @@ ganarXP ent xpGanada =
                  }
             , "¡SUBISTE DE NIVEL! (Lvl " ++ show (entLevel ent + 1) ++ ")")
        else (ent { entXp = nuevaXp }, "")
+
+
+-- NUEVO: Lógica de recolección
+pickUpItem :: Word32 -> Game ()
+pickUpItem ticks = do
+    st <- get
+    let pj = player st
+    let items = mapItems st
+
+    case find (\i -> itemPos i == entPos pj && not (itemObtained i)) items of
+        Nothing -> return () -- No hay ítem
+        Just itemFound -> do
+            let tipo = itemType itemFound
+
+            -- 1. Marcar ítem como "recogido" y eliminar del mapa
+            let itemsRestantes = filter (\i -> itemPos i /= entPos pj) items
+            let itemObtenido = itemFound { itemObtained = True }
+            let nuevaListaItems = itemObtenido : itemsRestantes
+
+            -- 2. APLICAR EFECTO INMEDIATO O TEMPORAL (Lógica Corregida y Alineación)
+            let (pjEfecto, logMsg) = case tipo of
+
+            			PotionFuerza ->
+            					let expiry = ticks + buffDuration
+            					in (pj { entBuffAtkEnd = expiry }, "¡Puño más fuerte activado! (" ++ show (buffDuration`div`1000)++"s)")
+
+            			PotionInvisibilidad ->
+            					let expiry = ticks + buffDuration
+            					in (pj { entInvEnd = expiry, entInvisible = True }, "¡Invisibilidad activada! (" ++ show (buffDuration`div`1000)++"s)")
+
+            			PotionVelocidad ->
+            					let expiry = ticks + buffDuration
+            					in (pj { entBuffSpdEnd = expiry }, "¡Velocidad activada! (" ++ show (buffDuration`div`1000)++"s)")
+
+            			PotionVeneno ->
+            					let dano = 5
+            					    nuevaHp = max 0 (entHp pj - dano)
+            					in (pj {entHp = nuevaHp}, "¡Poción Venenosa! Perdiste " ++ show dano ++ " HP.")
+
+            			-- Fallback (si el tipo no existe)
+            			_ -> (pj, "Error: Item desconocido recogido.")
+
+            -- 3. Actualizar estado con el nuevo jugador y la lista de ítems.
+            modify $ \s -> s {
+            		player = pjEfecto,
+            		mapItems = nuevaListaItems
+            }
+            agregarLog logMsg
 
 regenerarVida :: Entity -> Word32 -> Entity
 regenerarVida ent ticks =
@@ -155,12 +249,13 @@ actualizarEnemigos ticks = do
             let dest = entPos pj
             let dist = distL1 curr dest
 
+            let pjEsVisible = not (entInvisible pj)
             let visionRange = case entClass eRegen of
                                 Zombie -> zombieAggroRange
                                 Vaca   -> cowAggroRange
                                 _      -> aggroRange
 
-            let tieneAggro = dist < visionRange
+            let tieneAggro = dist < visionRange && pjEsVisible
             let eConEstado = eRegen { entAggro = tieneAggro }
 
             eConAccion <- if tieneAggro
@@ -375,6 +470,8 @@ updateGame ticks = do
             let pjRegen = regenerarVida pjMovido ticks
             let pjAnim = updateEntityAnimation pjRegen ticks
             modify $ \s -> s { player = pjAnim }
+            pickUpItem ticks
+            checkBuffs ticks
             actualizarEnemigos ticks
 
         GameOver -> do

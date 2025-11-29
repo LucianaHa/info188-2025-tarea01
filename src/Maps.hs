@@ -1,28 +1,40 @@
-module Maps where
+module Maps (
+    tileSuelo,
+    tilePared,
+    tileAgua,
+    mapaSuelo,
+    getFloorPositions,
+    replaceInRow,
+    replaceRows
+) where
+
+import Linear (V2(..))
+import Foreign.C.Types (CInt)
+import Config (screenSize)
 
 -- ==========================================
 -- 1. PON AQUÍ TUS NUEVOS IDs ENCONTRADOS
 -- ==========================================
 tileSuelo :: Int
-tileSuelo = 14 
+tileSuelo = 14
 
 tilePared :: Int
-tilePared = 7  
+tilePared = 7
 
 tileAgua :: Int
-tileAgua  = -1  
+tileAgua  = -1
 
 -- ==========================================
 -- 2. HERRAMIENTAS
 -- ==========================================
 replaceInRow :: Int -> Int -> Int -> [Int] -> [Int]
-replaceInRow start end val row = 
+replaceInRow start end val row =
     take start row ++ replicate (end - start) val ++ drop end row
 
 replaceRows :: Int -> Int -> ([Int] -> [Int]) -> [[Int]] -> [[Int]]
-replaceRows start end rowFunc matriz = 
-    take start matriz ++ 
-    map rowFunc (take (end - start) (drop start matriz)) ++ 
+replaceRows start end rowFunc matriz =
+    take start matriz ++
+    map rowFunc (take (end - start) (drop start matriz)) ++
     drop end matriz
 
 -- ==========================================
@@ -32,10 +44,10 @@ mapDim :: Int
 mapDim = 60
 
 mapaSuelo :: [[Int]]
-mapaSuelo = 
-    let 
+mapaSuelo =
+    let
         base = replicate mapDim (replicate mapDim tilePared)
-        
+
         -- Sala A (Circular)
         salaA1 = replaceRows 42 58 (replaceInRow 6 18 tileSuelo) base
         salaA2 = replaceRows 40 42 (replaceInRow 8 16 tileSuelo) salaA1
@@ -55,12 +67,25 @@ mapaSuelo =
 
         -- Sala D
         salaD = replaceRows 10 35 (replaceInRow 50 58 tileSuelo) pasilloAC
-        
+
         -- Pasillo CD
-        pasilloCD1 = replaceRows 30 35 (replaceInRow 45 54 tileSuelo) salaD 
+        pasilloCD1 = replaceRows 30 35 (replaceInRow 45 54 tileSuelo) salaD
         pasilloCD2 = replaceRows 30 55 (replaceInRow 50 54 tileSuelo) pasilloCD1
 
     in pasilloCD2
 
 mapaObjetos :: [[Int]]
 mapaObjetos = replicate mapDim (replicate mapDim (-1))
+
+-- ==========================================
+-- 4. UTILIDADES DEL MAPA (NUEVO)
+-- ==========================================
+
+-- Lista de todas las coordenadas de casillas de suelo (en PIXELES)
+getFloorPositions :: [[Int]] -> [V2 CInt]
+getFloorPositions matriz =
+    [ V2 (fromIntegral x * screenSize) (fromIntegral y * screenSize)
+    | (y, row) <- zip [0..] matriz
+    , (x, tileID) <- zip [0..] row
+    , tileID == tileSuelo -- tileSuelo es 14 según tus snippets
+    ]

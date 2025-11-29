@@ -5,7 +5,7 @@ import qualified SDL.Font
 import Linear (V2(..), V4(..), (^-^), (^+^))
 import Linear.Affine (Point(..))
 import Control.Monad.State
-import Control.Monad (when, forM_)
+import Control.Monad (when, forM_, unless, forM)
 import qualified Data.Map as M
 import qualified Data.Text as T
 import Foreign.C.Types (CInt)
@@ -34,6 +34,22 @@ getTileRect id
     x = col * tileSizeSource
     y = row * tileSizeSource
     rect = SDL.Rectangle (P (V2 x y)) (V2 tileSizeSource tileSizeSource)
+
+itemTilesetCols :: CInt
+itemTilesetCols = 8
+
+-- NUEVA FUNCIÓN DE RECORTE: Usa 8 columnas en lugar de tilesetCols (6)
+getItemTileRect :: Int -> Maybe (SDL.Rectangle CInt)
+getItemTileRect id
+    | id < 0 = Nothing
+    | otherwise = Just rect
+  where
+    col = fromIntegral (id `mod` fromIntegral itemTilesetCols)
+    row = fromIntegral (id `div` fromIntegral itemTilesetCols)
+    x = col * tileSizeSource
+    y = row * tileSizeSource
+    rect = SDL.Rectangle (P (V2 x y)) (V2 tileSizeSource tileSizeSource)
+
 
 drawHealthBar :: SDL.Renderer -> V2 CInt -> Int -> Int -> Game ()
 drawHealthBar r (V2 x y) hp maxHp = do
@@ -122,6 +138,7 @@ renderEntity r texs ent cameraOffset = do
         Nothing -> return ()
 
         Just tex -> do
+            -- 1. CALCULAR RECORTE DEL SPRITE (Lógica de Animación Avanzada)
             srcRect <- if texKey == "dungeon"
                 then
                     let
@@ -129,10 +146,10 @@ renderEntity r texs ent cameraOffset = do
                         srcY = heroStartY
                     in return $ SDL.Rectangle (P (V2 srcX srcY)) (V2 spriteSize spriteSize)
                 else do
-                    (texW, texH) <- queryTextureSafe tex
-
+                    -- La lógica avanzada de animación (filas/columnas)
                     let cols = 4
                     let rows = 4
+                    (texW, texH) <- queryTextureSafe tex
 
                     let cellW = fromIntegral texW `div` cols
                     let cellH = fromIntegral texH `div` rows
@@ -150,8 +167,20 @@ renderEntity r texs ent cameraOffset = do
 
                     return $ SDL.Rectangle (P (V2 srcX srcY)) (V2 cellW cellH)
 
+            -- 2. APLICAR TRANSPARENCIA (Tu lógica)
+            let alphaValue = if entInvisible ent
+                            then 128           -- 50% de opacidad
+                            else 255           -- 100% de opacidad
+
+            SDL.textureAlphaMod tex SDL.$= (fromIntegral alphaValue)
+
+            -- 3. DIBUJAR
             SDL.copy r tex (Just srcRect) (Just destRect)
 
+            -- 4. RESTAURAR OPACIDAD DEL TEXTURE (CRUCIAL)
+            SDL.textureAlphaMod tex SDL.$= 255
+
+            -- BARRA DE VIDA
             when (entHp ent < entMaxHp ent || entAggro ent) $ do
                 drawHealthBar r screenPos (entHp ent) (entMaxHp ent)
 
@@ -162,7 +191,7 @@ drawTitleScreen r texs sel = do
         Nothing -> do
             SDL.rendererDrawColor r SDL.$= V4 0 0 50 255
             SDL.clear r
-    SDL.present r
+    return()
 
 -- NUEVO: Dibujar Pantalla de Game Over
 drawGameOverScreen :: SDL.Renderer -> M.Map String SDL.Texture -> Game ()
@@ -172,7 +201,9 @@ drawGameOverScreen r texs = do
         Nothing -> do
             SDL.rendererDrawColor r SDL.$= V4 50 0 0 255 -- Fondo rojo oscuro si falla
             SDL.clear r
-    SDL.present r
+    return()
+
+    -- src/Render.hs (Reemplazar la función render completa)
 
 render :: Game ()
 render = do
@@ -181,12 +212,15 @@ render = do
     let r = renderer st
     let res = resources st
 
+    -- 1. CASO PRINCIPAL: MANEJO DEL MODO DE JUEGO
     case mode of
-        TitleScreen ->
+        TitleScreen -> do
             drawTitleScreen r (rTextures res) (menuSelection st)
+            SDL.present r
 
-        GameOver ->
-            drawGameOverScreen r (rTextures res) -- Mostramos la pantalla de derrota
+        GameOver -> do
+            drawGameOverScreen r (rTextures res)
+            SDL.present r
 
         Playing -> do
             let texs = rTextures res
@@ -197,14 +231,24 @@ render = do
             SDL.rendererDrawColor r SDL.$= V4 15 15 20 255
             SDL.clear r
 
-            case M.lookup "dungeon" (rTextures res) of
-                Just texDungeon -> do
+            -- 2. RENDERIZADO DE MAPA E ÍTEMS (LÓGICA UNIFICADA)
+            case (M.lookup "dungeon" texs, M.lookup "items" texs) of
+                (Just texDungeon, Just texItems) -> do
+
                     renderLayer r texDungeon mapaSuelo cameraOffset
+
+                    -- INYECCIÓN DE TU LÓGICA DE RENDERIZADO DE ÍTEMS
+                    forM_ (mapItems st) $ \item -> do
+                        unless (itemObtained item) $ do
+                            renderItem r texItems item cameraOffset -- Usa texItems
+
+                    -- Las entidades usan texDungeon (asumiendo que los héroes están allí)
                     forM_ (enemies st) $ \e -> renderEntity r texs e cameraOffset
                     renderEntity r texs (player st) cameraOffset
-                Nothing -> return ()
 
-            renderLog r (rFont res) (gameLog st)
+                _ -> return ()
+
+            renderLog r (rFont res) (gameLog st) -- Lógica de Log (del compañero)
             SDL.present r
 
   where
@@ -220,3 +264,20 @@ render = do
                         when (sx > -screenSize && sx < windowW && sy > -screenSize && sy < windowH) $ do
                             let destRect = SDL.Rectangle (P screenPos) (V2 screenSize screenSize)
                             SDL.copy r tex (Just srcRect) (Just destRect)
+
+itemTileID :: ItemType -> Int
+itemTileID PotionFuerza     = 20
+itemTileID PotionInvisibilidad = 4
+itemTileID PotionVelocidad  = 19
+itemTileID PotionVeneno     = 32
+itemTileID _ = -1
+
+renderItem :: SDL.Renderer -> SDL.Texture -> Item -> V2 CInt -> Game ()
+renderItem r tex item cameraOffset = do
+    let tileID = itemTileID (itemType item)
+    case getItemTileRect tileID of
+        Nothing -> return ()
+        Just srcRect -> do
+            let screenPos = itemPos item ^-^ cameraOffset
+            let destRect = SDL.Rectangle (P screenPos) (V2 screenSize screenSize)
+            SDL.copy r tex (Just srcRect) (Just destRect)

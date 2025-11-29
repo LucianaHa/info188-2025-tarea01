@@ -1,4 +1,15 @@
-module Types where
+module Types (
+    Direccion(..),
+    Clase(..),
+    ItemType(..),
+    Item(..),
+    AssetManager,
+    Resources(..),
+    Entity(..),
+    GameState(..),
+    Game,
+    GameMode(..)
+) where
 
 import qualified SDL
 import qualified SDL.Font
@@ -17,6 +28,15 @@ data Direccion = Abajo | Izquierda | Derecha | Arriba
 
 data Clase = Guerrero | Mago | Asesino | Orco | Esqueleto | Zombie | Vaca
     deriving (Show, Eq)
+
+data ItemType = PotionFuerza | PotionInvisibilidad | PotionVelocidad | PotionVeneno
+		deriving (Show, Eq)
+
+data Item = Item {
+    itemType :: ItemType,
+    itemPos  :: V2 CInt, -- Posición en el mapa
+    itemObtained :: Bool -- Si ya fue recogido
+} deriving (Show, Eq)
 
 type AssetManager = Map String SDL.Texture
 
@@ -48,6 +68,13 @@ data Entity = Entity {
     entCooldown  :: Word32,
     entAggro     :: Bool,
     entPatrolTimer :: Word32,
+    entBuffAtkEnd  :: Word32,  --Finaliza el efecto de PotionFueza
+    entBuffSpdEnd  :: Word32,  -- Finaliza el efecto de PotionVelocidad
+    entInvisible :: Bool,  -- Estado actual de Invisibilidad
+    entInvEnd  :: Word32,  -- Finaliza el efecto de PotionInvisibilidad
+    entBaseMinAtk :: Int,    -- Mínimo ataque base
+    entBaseMaxAtk :: Int,    -- Máximo ataque base
+    entBaseSpeed  :: CInt,   -- Velocidad base
 
     entDead      :: Bool,
     entDeathTick :: Word32,
@@ -57,6 +84,7 @@ data Entity = Entity {
 data GameState = GameState {
     player      :: Entity,
     enemies     :: [Entity],
+    mapItems    :: [Item],
     gameLog     :: [String],
     resources   :: Resources,
     renderer    :: SDL.Renderer,

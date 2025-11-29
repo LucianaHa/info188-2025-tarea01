@@ -8,12 +8,16 @@ import qualified SDL.Font
 import Linear (V2(..))
 import Control.Monad.State
 import Control.Monad (unless)
+import System.Random (randomRIO)
+import Data.List (splitAt)
+import Foreign.C.Types(CInt)
 
 import Config
 import Types
 import Assets
 import Logic
 import Render
+import Maps
 
 gameLoop :: Game ()
 gameLoop = do
@@ -28,6 +32,33 @@ gameLoop = do
     unless exit $ do
         liftIO $ SDL.delay 16
         gameLoop
+
+-- ==========================================
+-- UTILIDADES DE INICIALIZACIÓN ALEATORIA
+-- ==========================================
+
+getRandomUniqueElements :: Int -> [a] -> IO [a]
+getRandomUniqueElements n list = do
+    let len = length list
+    if n <= 0 || len == 0 || n > len
+        then return []
+        else do
+            randomIndex <- randomRIO (0, len - 1)
+            let selectedElement = list !! randomIndex
+
+            let (before, after) = splitAt randomIndex list
+            let remainingList = before ++ (tail after)
+
+            rest <- getRandomUniqueElements (n - 1) remainingList
+            return (selectedElement : rest)
+
+-- Función para crear la lista inicial de ítems
+createRandomItems :: [ItemType] -> [V2 CInt] -> IO [Item]
+createRandomItems itemTypes floorPositions = do
+    let totalItems = length itemTypes
+
+    randomPositions <- getRandomUniqueElements totalItems floorPositions
+    return $ zipWith (\tipo pos -> Item { itemType = tipo, itemPos = pos, itemObtained = False }) itemTypes randomPositions
 
 main :: IO ()
 main = do
@@ -44,6 +75,16 @@ main = do
 
     let startPos = V2 (54 * screenSize) (20 * screenSize)
 
+    let allFloorPositions = getFloorPositions mapaSuelo
+
+    let itemsToSpawn = [ PotionFuerza, PotionFuerza
+    											, PotionVelocidad, PotionVelocidad
+    											, PotionVeneno, PotionVeneno,
+    												PotionInvisibilidad, PotionInvisibilidad
+    											]
+
+    randomItems <- createRandomItems itemsToSpawn allFloorPositions
+
     let jugador = Entity {
         entPos = startPos, entTarget = startPos, entOrigin = startPos,
         entDir = Izquierda, entIsMoving = False, entAnimFrame = 0, entAnimTimer = 0,
@@ -55,8 +96,19 @@ main = do
 
         entXp = 0, entLevel = 1, entNextLevel = 100,
         entCooldown = 0, entAggro = False,
+
         entPatrolTimer = 0,
-        entDead = False, entDeathTick = 0, entRegenTick = 0
+        entDead = False, entDeathTick = 0, entRegenTick = 0,
+
+        entBuffAtkEnd = 0,     -- Nuevo: Fin de Puño más fuerte
+        entBuffSpdEnd = 0,     -- Nuevo: Fin de Velocidad
+        entInvisible  = False, -- Nuevo: Estado de Invisibilidad
+        entInvEnd     = 0,     -- Nuevo: Fin de Invisibilidad
+
+        entBaseMinAtk = 6,
+        entBaseMaxAtk = 8,
+        entBaseSpeed = 8
+
     }
 
     let orcoPos = V2 (10 * screenSize) (45 * screenSize)
@@ -72,6 +124,14 @@ main = do
         entXp = 50, entLevel = 1, entNextLevel = 0,
         entCooldown = 0, entAggro = False,
         entPatrolTimer = 0,
+        entBuffAtkEnd = 0,
+        entBuffSpdEnd = 0,
+        entInvisible  = False,
+        entInvEnd     = 0,
+
+        entBaseMinAtk = 2,
+        entBaseMaxAtk = 4,
+        entBaseSpeed  = 3,
         entDead = False, entDeathTick = 0, entRegenTick = 0
     }
 
@@ -90,6 +150,15 @@ main = do
         entXp = 30, entLevel = 1, entNextLevel = 0,
         entCooldown = 0, entAggro = False,
         entPatrolTimer = 0,
+
+        entBuffAtkEnd = 0,
+        entBuffSpdEnd = 0,
+        entInvisible  = False,
+        entInvEnd     = 0,
+
+        entBaseMinAtk = 1,
+        entBaseMaxAtk = 2,
+        entBaseSpeed  = 5,
         entDead = False, entDeathTick = 0, entRegenTick = 0
     }
 
@@ -108,12 +177,23 @@ main = do
         entXp = 100, entLevel = 1, entNextLevel = 0,
         entCooldown = 0, entAggro = False,
         entPatrolTimer = 0,
+
+        entBuffAtkEnd = 0,
+        entBuffSpdEnd = 0,
+        entInvisible  = False,
+        entInvEnd     = 0,
+
+        entBaseMinAtk = 5,
+        entBaseMaxAtk = 8,
+        entBaseSpeed  = 10,
+
         entDead = False, entDeathTick = 0, entRegenTick = 0
     }
 
     let estadoInicial = GameState {
         player      = jugador,
         enemies     = [orco, zombie, vaca],
+        mapItems    = randomItems,
         gameLog     = ["Bienvenido a la mazmorra."],
         resources   = misRecursos,
         renderer    = r,

@@ -19,6 +19,7 @@ loadFontSafe path size = do
             return Nothing
         Right font -> return (Just font)
 
+
 cargarRecursos :: SDL.Renderer -> IO Resources
 cargarRecursos r = do
     texDungeon <- loadTexture r "Images/textures2D/Tiles/dungeon.png"
@@ -31,7 +32,7 @@ cargarRecursos r = do
     texOgre <- loadTexture r "Images/textures2D/Animations/ogre.png"
     texZombie <- loadTexture r "Images/textures2D/Animations/zombie.png"
     texCow <- loadTexture r "Images/textures2D/Animations/cow-white.png"
-
+    texItems <- loadTexture r "Images/HUD/Icons/Potions.png"
     miFuente <- loadFontSafe "assets/PressStart2P.ttf" 12
 
     return $ Resources
@@ -43,6 +44,7 @@ cargarRecursos r = do
             , ("ogre", texOgre)
             , ("zombie", texZombie)
             , ("cow", texCow)
+            , ("items", texItems)
             ]
         , rFont     = miFuente
         }
