@@ -155,9 +155,10 @@ actualizarEnemigos ticks = do
             let dest = entPos pj
             let dist = distL1 curr dest
 
-            -- LÓGICA DE VISIÓN DEL ZOMBIE
+            -- LÓGICA DE VISIÓN SEGÚN TIPO
             let visionRange = case entClass eRegen of
                                 Zombie -> zombieAggroRange
+                                Vaca   -> cowAggroRange -- Miope
                                 _      -> aggroRange
 
             let tieneAggro = dist < visionRange
@@ -269,10 +270,6 @@ updateEntityMovement e = do
             let signumVec = V2 (signum dx) (signum dy)
             let step = speed *^ signumVec
             return e { entPos = curr + step }
-
--- ==========================================
--- 4. UPDATE GENERAL (INPUT)
--- ==========================================
 
 isQuitEvent :: SDL.EventPayload -> Bool
 isQuitEvent SDL.QuitEvent = True

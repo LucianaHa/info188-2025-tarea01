@@ -21,7 +21,8 @@ characterIndexFromClass Mago     = 1
 characterIndexFromClass Asesino  = 5
 characterIndexFromClass Orco     = 3
 characterIndexFromClass Esqueleto = 4
-characterIndexFromClass Zombie    = 4 -- Placeholder seguro (reutilizamos índice o uno nuevo si existiera en tileset)
+characterIndexFromClass Zombie    = 4
+characterIndexFromClass Vaca      = 4 -- Placeholder
 
 getTileRect :: Int -> Maybe (SDL.Rectangle CInt)
 getTileRect id
@@ -96,7 +97,6 @@ renderLog r (Just font) logs = do
         SDL.destroyTexture texture
         SDL.freeSurface surface
 
--- Helper seguro para queryTexture
 queryTextureSafe :: SDL.Texture -> Game (CInt, CInt)
 queryTextureSafe tex = do
     info <- SDL.queryTexture tex
@@ -113,6 +113,7 @@ renderEntity r texs ent cameraOffset = do
                                     Guerrero -> ("hero", entAnimFrame ent)
                                     Orco     -> ("ogre", entAnimFrame ent)
                                     Zombie   -> ("zombie", entAnimFrame ent)
+                                    Vaca     -> ("cow", entAnimFrame ent) -- NUEVO
                                     _        -> ("dungeon", fromIntegral (characterIndexFromClass entClass'))
 
     let spriteSize = if texKey == "dungeon" then tileSizeSource else heroSize
@@ -128,7 +129,6 @@ renderEntity r texs ent cameraOffset = do
                         srcY = heroStartY
                     in return $ SDL.Rectangle (P (V2 srcX srcY)) (V2 spriteSize spriteSize)
                 else do
-                    -- Cálculo dinámico y alineado al fondo
                     (texW, texH) <- queryTextureSafe tex
 
                     let cols = 4
@@ -145,7 +145,6 @@ renderEntity r texs ent cameraOffset = do
 
                     let col = fromIntegral (entAnimFrame ent)
 
-                    -- Posición en el sprite sheet
                     let srcX = col * cellW
                     let srcY = row * cellH
 

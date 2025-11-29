@@ -75,12 +75,11 @@ main = do
         entDead = False, entDeathTick = 0, entRegenTick = 0
     }
 
-    -- NUEVO ENEMIGO: ZOMBIE (En la Sala B)
     let zombiePos = V2 (15 * screenSize) (10 * screenSize)
     let zombie = Entity {
         entPos = zombiePos, entTarget = zombiePos, entOrigin = zombiePos,
         entDir = Abajo, entIsMoving = False, entAnimFrame = 0, entAnimTimer = 0,
-        entSpeed = 5, -- Más rápido que el Ogro
+        entSpeed = 5,
 
         entClass = Zombie,
         entHp = 20,
@@ -94,9 +93,28 @@ main = do
         entDead = False, entDeathTick = 0, entRegenTick = 0
     }
 
+    -- NUEVO ENEMIGO: VACA
+    let cowPos = V2 (45 * screenSize) (30 * screenSize)
+    let vaca = Entity {
+        entPos = cowPos, entTarget = cowPos, entOrigin = cowPos,
+        entDir = Abajo, entIsMoving = False, entAnimFrame = 0, entAnimTimer = 0,
+        entSpeed = 10, -- Casi tan rápida como tú (12)
+
+        entClass = Vaca,
+        entHp = 60, -- Mucha vida (Tanque)
+        entMaxHp = 60,
+        entMinAtk = 5, -- Golpea fuerte
+        entMaxAtk = 8,
+
+        entXp = 100, entLevel = 1, entNextLevel = 0,
+        entCooldown = 0, entAggro = False,
+        entPatrolTimer = 0,
+        entDead = False, entDeathTick = 0, entRegenTick = 0
+    }
+
     let estadoInicial = GameState {
         player      = jugador,
-        enemies     = [orco, zombie], -- ¡Añadido!
+        enemies     = [orco, zombie, vaca], -- ¡Vaca añadida!
         gameLog     = ["Bienvenido a la mazmorra."],
         resources   = misRecursos,
         renderer    = r,

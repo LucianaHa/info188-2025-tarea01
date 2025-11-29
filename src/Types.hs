@@ -14,8 +14,8 @@ data GameMode = TitleScreen | Playing
 data Direccion = Abajo | Izquierda | Derecha | Arriba
     deriving (Show, Eq)
 
--- AÑADIDO: Zombie a las clases
-data Clase = Guerrero | Mago | Asesino | Orco | Esqueleto | Zombie
+-- AÑADIDO: Vaca
+data Clase = Guerrero | Mago | Asesino | Orco | Esqueleto | Zombie | Vaca
     deriving (Show, Eq)
 
 type AssetManager = Map String SDL.Texture

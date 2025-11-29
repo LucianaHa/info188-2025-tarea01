@@ -26,9 +26,12 @@ walkSpeed = 4
 aggroRange :: CInt
 aggroRange = 320
 
--- NUEVO: Rango de visión del Zombie (480px = 7.5 bloques)
 zombieAggroRange :: CInt
 zombieAggroRange = 480
+
+-- NUEVO: Vaca Miope (Visión corta, ~3 bloques)
+cowAggroRange :: CInt
+cowAggroRange = 200
 
 attackRange :: CInt
 attackRange = 60

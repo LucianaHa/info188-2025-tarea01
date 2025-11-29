@@ -25,9 +25,10 @@ cargarRecursos r = do
     texBackground <- loadTexture r "Images/HUD/TitleScreen/title.jpg"
     texHeroe <- loadTexture r "Images/textures2D/Animations/hero.png"
     texOgre <- loadTexture r "Images/textures2D/Animations/ogre.png"
-
-    -- NUEVO: Cargar Zombie
     texZombie <- loadTexture r "Images/textures2D/Animations/zombie.png"
+
+    -- NUEVO: Vaca
+    texCow <- loadTexture r "Images/textures2D/Animations/cow-white.png"
 
     miFuente <- loadFontSafe "assets/PressStart2P.ttf" 12
 
@@ -38,6 +39,7 @@ cargarRecursos r = do
             , ("hero", texHeroe)
             , ("ogre", texOgre)
             , ("zombie", texZombie)
+            , ("cow", texCow) -- Añadido
             ]
         , rFont     = miFuente
         }
