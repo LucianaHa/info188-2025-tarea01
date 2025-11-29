@@ -1,8 +1,32 @@
 # info188-2025-tarea01
-Juego Haskell
+# Haski RPG: La Venganza de la Vaca
 
-instalar:
-```
+**Asignatura:** Programación en Paradigmas (INFO188)
+**Profesor:** Cristóbal A. Navarro
+**Fecha:** 29 de Noviembre 2025
+
+## Integrantes del Grupo
+* [Jonatan Aguero]
+* [Mayra Carrillo]
+* [Luciana Habert]
+* [Alen Rupailaf]
+* [Cristobal Veas]
+---
+## 1. Descripción del Proyecto
+
+**Objetivo Principal:**
+[cite_start]El jugador está encerrado en una mazmorra y busca sobrevivir a hordas de Orcos y Zombies, acumular experiencia para subir de nivel y finalmente derrotar a la "Vaca Sagrada", el jefe final del nivel para poder escapar y salir a la superficie.[cite: 12].
+
+---
+
+## 2. Instrucciones de Instalación y Ejecución
+
+El proyecto utiliza `Cabal` para la gestión de paquetes y requiere las librerías de desarrollo de SDL2.
+
+### Requisitos del Sistema (Linux/Ubuntu/Debian)
+Ejecute los siguientes comandos en su terminal para instalar las dependencias necesarias:
+
+```bash
 sudo apt update
 sudo apt install libsdl2-dev libsdl2-image-dev libsdl2-ttf-dev libsdl2-mixer-dev
 sudo apt install ghc libghc-mtl-dev
