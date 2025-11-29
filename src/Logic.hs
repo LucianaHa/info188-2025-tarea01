@@ -9,6 +9,8 @@ import Data.Word (Word32)
 import Foreign.C.Types (CInt)
 import Data.List (find)
 import Linear.Affine (Point(..))
+import qualified SDL.Mixer as Mixer
+import qualified Data.Map as M
 
 import Types
 import Config
@@ -81,9 +83,103 @@ isClickInside (V2 clickX clickY) rectX rectY rectW rectH =
     clickX >= rectX && clickX <= rectX + rectW &&
     clickY >= rectY && clickY <= rectY + rectH
 
+playMusicForLevel :: Int -> Game ()
+playMusicForLevel nivel = do
+    res <- gets resources
+    let musicaMap = rMusic res
+    
+    case M.lookup nivel musicaMap of
+        Nothing -> return () -- No hay música para este nivel
+        Just song -> do
+            liftIO $ Mixer.haltMusic       -- Detener anterior
+            liftIO $ Mixer.playMusic (-1) song
+
 -- ==========================================
 -- 2. COMBATE Y XP (NUEVO SISTEMA Q/W)
 -- ==========================================
+
+createEnemy :: Clase -> V2 CInt -> Entity
+createEnemy cls pos = Entity {
+    entPos = pos, entTarget = pos, entOrigin = pos, entDir = Abajo,
+    entIsMoving = False, entAnimFrame = 0, entAnimTimer = 0,
+    entClass = cls,
+    
+    -- STATS: Rata tiene poca vida
+    entHp = if cls == Rata then 8 else (if cls == Vaca then 150 else 20),
+    entMaxHp = if cls == Rata then 8 else (if cls == Vaca then 150 else 20),
+    
+    -- DAÑO: Rata pega 2-5
+    entMinAtk = if cls == Rata then 1 else (if cls == Vaca then 8 else 5), 
+    entMaxAtk = if cls == Rata then 3 else (if cls == Vaca then 12 else 8),
+    
+    -- VELOCIDAD: Rata es rápida (14), Zombie lento (5)
+    entSpeed = if cls == Rata then 14 else 8, 
+    entXp = if cls == Rata then 15 else 100,
+    
+    -- Defaults
+    entLevel=1, entNextLevel=0, entCooldown=0, entAggro=False, entPatrolTimer=0,
+    entBuffAtkEnd=0, entBuffSpdEnd=0, entInvisible=False, entInvEnd=0,
+    entBaseMinAtk=2, entBaseMaxAtk=5, entBaseSpeed=10,
+    entDead=False, entDeathTick=0, entRegenTick=0,
+    entAttackType=NoAttack, entAttackTimer=0
+}
+
+generarEnemigos :: Int -> [Entity]
+generarEnemigos nivel = case nivel of
+    1 -> 
+        -- MUCHAS RATAS + Algunos Zombies
+        [ createEnemy Rata (V2 (x * screenSize) (y * screenSize)) 
+        | (x, y) <- [
+            (10, 50), -- Sala A (Abajo Izquierda)
+            (12, 45), -- Sala A
+            (30, 40), -- Sala C (Centro)
+            (35, 35), -- Sala C
+            (52, 20), -- Sala D (Arriba Derecha, pasillo largo)
+            (54, 25)  -- Sala D
+            ]
+        ] ++
+        [ createEnemy Zombie (V2 (10* screenSize) (10* screenSize)) ]
+
+    2 -> 
+        -- SOLO LA VACA (Boss) en el centro
+        [ createEnemy Vaca (V2 (30 * screenSize) (55 * screenSize)) ]
+    
+    _ -> []
+
+-- FUNCIÓN PARA DETECTAR ESCALERA
+checkStairs :: Game ()
+checkStairs = do
+    st <- get
+    let pj = player st
+    let mapa = currentMap st -- Ahora sí existe esta variable
+    let (V2 px py) = entPos pj
+    
+    -- Chequear centro del personaje
+    let tx = fromIntegral ((px + 32) `div` screenSize)
+    let ty = fromIntegral ((py + 32) `div` screenSize)
+    
+    -- Verificar si pisamos tileEscalera (5)
+    let esEscalera = (mapa !! ty !! tx) == tileEscalera
+    
+    when (currentLevel st == 1 && esEscalera) $ do
+        let nuevoNivel = 2
+        let nuevosEnemigos = generarEnemigos nuevoNivel
+        let nuevoMapa = mapaNivel2
+        
+        -- POSICIÓN SEGURA (Inicio del pasillo nivel 2)
+        -- X = 30 (Centro), Y = 6 (Arriba)
+        let startPos = V2 (30 * screenSize) (5*screenSize) 
+        
+        modify $ \s -> s {
+            currentLevel = nuevoNivel,
+            currentMap = nuevoMapa,
+            enemies = nuevosEnemigos,
+            player = pj { entPos = startPos, entTarget = startPos, entIsMoving = False },
+            gameLog = "¡Has descendido al Nivel 2!" : gameLog s
+        }
+        playMusicForLevel nuevoNivel
+
+-- ACTUALIZAR EL UPDATE GAME
 
 createPlayer :: Clase -> V2 CInt -> Entity
 createPlayer cls pos = Entity {
@@ -397,7 +493,7 @@ actualizarEnemigos ticks = do
                         -- Chequear colisiones
                         let chocaEnt = chocaConEntidad nextPos (enemies stInicial) || nextPos == entPos pj
 
-                        if not (esMuro nextPos) && not chocaEnt
+                        if not (esMuro nextPos (currentMap stInicial)) && not chocaEnt
                             then return eConEstado { entTarget = nextPos, entIsMoving = True, entDir = newDir }
                             else return eConEstado
                     else return eConEstado
@@ -413,9 +509,10 @@ actualizarEnemigos ticks = do
                         let nextPos = curr + (screenSize *^ dirVec)
                         let chocaEnt = chocaConEntidad nextPos (enemies stInicial) || nextPos == entPos pj
 
-                        if not (esMuro nextPos) && not chocaEnt
+                        -- CORRECCIÓN AQUÍ TAMBIÉN:
+                        if not (esMuro nextPos (currentMap stInicial)) && not chocaEnt
                         then return eConEstado { entTarget = nextPos, entIsMoving = True }
-                        else return eConEstado { entPatrolTimer = 0 } -- Chocó, resetear timer
+                        else return eConEstado { entPatrolTimer = 0 }
                     else do
                         -- IA Aleatoria: Decidir si caminar o esperar
                         let accion = randomRango 0 10 (ticks + fromIntegral (entHp eConEstado))
@@ -525,7 +622,9 @@ handlePlayingEvents events ticks = do
                 else do
                     -- Si mantiene dirección, avanzar
                     let nextTile = entPos pj + (screenSize *^ inputDir)
-                    unless (esMuro nextTile || chocaConEntidad nextTile (enemies st)) $ do
+                    
+                    -- CORRECCIÓN AQUÍ: Agrega (currentMap st) después de nextTile
+                    unless (esMuro nextTile (currentMap st) || chocaConEntidad nextTile (enemies st)) $ do
                         modify $ \s -> s { player = pj { entTarget = nextTile, entIsMoving = True } }
 
   where
@@ -590,47 +689,73 @@ resetGame = do
         enemies = enemiesReset, 
         gameMode = TitleScreen, 
         gameLog = ["¡Nueva Partida!"],
-        gameStartTime = 0 
+        gameStartTime = 0,
+        currentLevel = 1,
+        currentMap   = mapaNivel1
+
     }
 updateGame :: Word32 -> Game ()
 updateGame ticks = do
     mode <- gets gameMode
     case mode of
         Playing -> do
-            st <- get
-            let pj = player st
+            -- 1. GUARDAR EL NIVEL ACTUAL ANTES DE CHEQUEAR
+            stAntes <- get
+            let nivelAntes = currentLevel stAntes
+
+            -- 2. CHEQUEAR ESCALERAS
+            checkStairs 
             
-            -- Movimiento
-            pjMovido <- if entIsMoving pj then updateEntityMovement pj else return pj
-            let pjRegen = regenerarVida pjMovido ticks
-            let pjAnim = updateEntityAnimation pjRegen ticks
-            
-            -- RESETEAR ESTADO DE ATAQUE SI ACABÓ LA ANIMACIÓN
-            let pjFinal = if entAttackType pjAnim /= NoAttack && ticks >= entAttackTimer pjAnim
-                          then pjAnim { entAttackType = NoAttack }
-                          else pjAnim
-            
-            modify $ \s -> s { player = pjFinal }
-            
-            pickUpItem ticks
-            checkBuffs ticks
-            actualizarEnemigos ticks
+            -- 3. OBTENER EL ESTADO NUEVO (POST-ESCALERA)
+            stDespues <- get
+            let nivelDespues = currentLevel stDespues
+
+            -- 4. LOGICA DE SEGURIDAD
+            -- Si el nivel cambió, NO calculamos movimiento en este frame.
+            -- Esto evita que la lógica vieja sobreescriba la nueva posición (30, 4).
+            if nivelAntes /= nivelDespues 
+            then return () 
+            else do
+                -- Si seguimos en el mismo nivel, procedemos normal,
+                -- PERO usamos 'stDespues' para tener los datos más frescos.
+                let pj = player stDespues 
+                
+                -- Movimiento
+                pjMovido <- if entIsMoving pj then updateEntityMovement pj else return pj
+                let pjRegen = regenerarVida pjMovido ticks
+                let pjAnim = updateEntityAnimation pjRegen ticks
+                
+                -- Resetear ataque
+                let pjFinal = if entAttackType pjAnim /= NoAttack && ticks >= entAttackTimer pjAnim
+                              then pjAnim { entAttackType = NoAttack }
+                              else pjAnim
+                
+                modify $ \s -> s { player = pjFinal }
+                
+                pickUpItem ticks
+                checkBuffs ticks
+                actualizarEnemigos ticks
 
         GameOver -> do
             st <- get
             if ticks > gameOverTimer st + 5000 then resetGame else return ()
         _ -> return ()
 
+
+
 -- Helpers faltantes
 vecToDir :: V2 CInt -> Direccion
 vecToDir (V2 0 (-1)) = Arriba; vecToDir (V2 0 1) = Abajo; vecToDir (V2 (-1) 0) = Izquierda; vecToDir _ = Derecha
 
-esMuro :: V2 CInt -> Bool
-esMuro (V2 pixelX pixelY) =
+esMuro :: V2 CInt -> [[Int]] -> Bool
+esMuro (V2 pixelX pixelY) mapaActual =
     let x = fromIntegral (pixelX `div` screenSize)
         y = fromIntegral (pixelY `div` screenSize)
-        fuera = y < 0 || y >= length mapaSuelo || x < 0 || x >= length (head mapaSuelo)
-    in if fuera then True else (mapaSuelo !! y !! x) == tilePared
+        h = length mapaActual
+        w = length (head mapaActual)
+        fuera = y < 0 || y >= h || x < 0 || x >= w
+    in if fuera then True else (mapaActual !! y !! x) == tilePared
+
 
 chocaConEntidad :: V2 CInt -> [Entity] -> Bool
 chocaConEntidad pos ents = any (\e -> entPos e == pos && not (entDead e)) ents

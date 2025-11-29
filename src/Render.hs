@@ -249,26 +249,35 @@ renderEntity r texs ent cameraOffset = do
             Orco    -> ("ogre", entAnimFrame ent)
             Zombie  -> ("zombie", entAnimFrame ent)
             Vaca    -> ("cow", entAnimFrame ent)
+            Rata -> ("rat", entAnimFrame ent)
             _       -> ("hero", entAnimFrame ent)
 
     -- 3. DIBUJAR (Sin tintes raros, color natural)
     case M.lookup texKey texs of
         Nothing -> return ()
         Just tex -> do
-            let cellSize = case texKey of "cow" -> 48; _ -> 32
             
-            -- Dirección del sprite (0:Abajo, 1:Izq, 2:Arriba, 3:Der)
+            -- DEFINIR TAMAÑO DE RECORTE (SOURCE)
+            let cellSize = case texKey of 
+                    "cow" -> 48 
+                    "rat" -> 16 -- <--- RATA: SHEET 64x64 => FRAME 16x16
+                    _     -> 32 
+
             let row = case entDir ent of Abajo -> 0; Izquierda -> 1; Arriba -> 2; Derecha -> 3
             let col = fromIntegral (entAnimFrame ent)
+            
+            -- Recorte (Source)
             let srcRect = SDL.Rectangle (P (V2 (col * cellSize) (row * cellSize))) (V2 cellSize cellSize)
+            
+            SDL.textureBlendMode tex SDL.$= SDL.BlendAlphaBlend
 
             -- Manejo de transparencia (Invisibilidad)
             let alphaValue = if entInvisible ent then 128 else 255
+
             SDL.textureAlphaMod tex SDL.$= (fromIntegral alphaValue)
 
-            -- ¡DIBUJAR! (Ya no usamos textureColorMod porque tenemos los sprites reales)
             SDL.copy r tex (Just srcRect) (Just destRect)
-            
+   
             -- Restaurar Alpha por si acaso
             SDL.textureAlphaMod tex SDL.$= 255
 
@@ -282,7 +291,10 @@ renderEntity r texs ent cameraOffset = do
                 
                 let angle :: CDouble
                     angle = case entDir ent of
-                        Arriba -> 0; Derecha -> 90; Abajo -> 180; Izquierda -> 270
+                        Arriba    -> 0
+                        Derecha   -> 90
+                        Abajo     -> 180
+                        Izquierda -> 270
 
                 let centerOffsetX = (entityRenderSize - shieldW) `div` 2
                 let centerOffsetY = (entityRenderSize - shieldH) `div` 2
@@ -341,22 +353,22 @@ drawTitleScreen r (Just font) texs pj = do
     let infoTxt = "Clase actual: " ++ claseNombre ++ " (Usa 1-4 para cambiar)"
     let color = V4 255 255 255 255
     
-    -- Renderizamos texto en la parte inferior o superior
+    -- Renderizamos texto en la parte superior
     renderText r font 50 50 infoTxt color
     
+    -- EL ERROR ESTABA AQUÍ (había un O (V2 suelto)
     -- Mostrar stats breves
     let statsTxt = "HP: " ++ show (entMaxHp pj) ++ " | ATK: " ++ show (entMinAtk pj) ++ "-" ++ show (entMaxAtk pj) ++ " | SPD: " ++ show (entSpeed pj)
     renderText r font 50 80 statsTxt color
 
--- NUEVO: Dibujar Pantalla de Game Over
 drawGameOverScreen :: SDL.Renderer -> M.Map String SDL.Texture -> Game ()
 drawGameOverScreen r texs = do
     case M.lookup "gameover" texs of
         Just bgTex -> SDL.copy r bgTex Nothing Nothing
         Nothing -> do
             SDL.rendererDrawColor r SDL.$= V4 50 0 0 255 -- Fondo rojo oscuro si falla
-            SDL.clear r
-    return()
+            SDL.clear r -- <--- AQUÍ HABÍA BASURA, AHORA ESTÁ LIMPIO
+    return ()
 
     -- src/Render.hs (Reemplazar la función render completa)
 
@@ -391,7 +403,7 @@ render = do
             case (M.lookup "dungeon" texs, M.lookup "items" texs) of
                 (Just texDungeon, Just texItems) -> do
 
-                    renderLayer r texDungeon mapaSuelo cameraOffset
+                    renderLayer r texDungeon (currentMap st) cameraOffset
 
                     -- INYECCIÓN DE TU LÓGICA DE RENDERIZADO DE ÍTEMS
                     forM_ (mapItems st) $ \item -> do

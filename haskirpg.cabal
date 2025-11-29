@@ -20,6 +20,7 @@ executable haskirpg
                     , sdl2
                     , sdl2-image
                     , sdl2-ttf
+                    , sdl2-mixer
                     , linear
                     , text
                     , containers

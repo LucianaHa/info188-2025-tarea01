@@ -6,6 +6,8 @@ import qualified SDL.Font
 import Data.Map (fromList)
 import Control.Exception (try, SomeException)
 import Types (Resources(..))
+import qualified SDL.Mixer as Mixer
+
 
 loadTexture :: SDL.Renderer -> FilePath -> IO SDL.Texture
 loadTexture r path = SDL.Image.loadTexture r path
@@ -29,12 +31,14 @@ cargarRecursos r = do
     texBlades <- loadTexture r "Images/textures2D/Animations/bladesHit.png"
     texItems <- loadTexture r "Images/HUD/Icons/Potions.png"
     miFuente <- loadFontSafe "assets/PressStart2P.ttf" 12
-
+    musicNivel1 <- Mixer.load "assets/music.mp3"
+    musicNivel2 <- Mixer.load "assets/boss.mp3"
     -- == CARGA DE PERSONAJES ==
     texHeroe <- loadTexture r "Images/textures2D/Animations/hero.png"
     texOgre <- loadTexture r "Images/textures2D/Animations/ogre.png"
     texZombie <- loadTexture r "Images/textures2D/Animations/zombie.png"
     texCow <- loadTexture r "Images/textures2D/Animations/cow-white.png"
+    texRat <- loadTexture r "Images/textures2D/Animations/rat.png"
     
     -- ¡NUEVOS SPRITES! (Asegúrate que los nombres coinciden con tu carpeta)
     texPaladin <- loadTexture r "Images/textures2D/Animations/paladin.png"
@@ -54,10 +58,15 @@ cargarRecursos r = do
             , ("ogre", texOgre)
             , ("zombie", texZombie)
             , ("cow", texCow)
+            , ("rat", texRat)
             -- Nuevas Claves
             , ("paladin", texPaladin)
             , ("bruja", texBruja)
             , ("chamana", texChamana)
             ]
         , rFont     = miFuente
+        , rMusic    = fromList
+            [ (1, musicNivel1) -- Nivel 1 -> Música normal
+            , (2, musicNivel2) -- Nivel 2 -> Música jefe
+            ]
         }

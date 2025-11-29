@@ -14,6 +14,8 @@ module Types (
 
 import qualified SDL
 import qualified SDL.Font
+import qualified SDL.Mixer as Mixer 
+import Data.Map (Map)
 import Linear (V2)
 import Foreign.C.Types (CInt)
 import Data.Map (Map)
@@ -27,7 +29,7 @@ data GameMode = TitleScreen | Playing | GameOver
 data Direccion = Abajo | Izquierda | Derecha | Arriba
     deriving (Show, Eq)
 
-data Clase = Hero | Paladin | Bruja | Chamana | Orco | Esqueleto | Zombie | Vaca
+data Clase = Hero | Paladin | Bruja | Chamana | Orco | Esqueleto | Zombie | Vaca | Rata
     deriving (Show, Eq)
 
 data AttackType = NoAttack | AtkNormal | AtkArea
@@ -47,6 +49,7 @@ type AssetManager = Map String SDL.Texture
 data Resources = Resources
     { rTextures :: AssetManager
     , rFont     :: Maybe SDL.Font.Font
+    , rMusic    :: Map Int Mixer.Music
     }
 
 data Entity = Entity {
@@ -100,7 +103,9 @@ data GameState = GameState {
     menuSelection :: Int,
     gameStartTime :: Word32,
     gameOverTimer :: Word32,
-    encounteredTypes :: [Clase]
+    encounteredTypes :: [Clase],
+    currentLevel :: Int,
+    currentMap   :: [[Int]]
 }
 
 type Game = StateT GameState IO
