@@ -9,7 +9,7 @@ import Data.Word (Word32)
 import Foreign.C.Types (CInt)
 import Data.List (find)
 import Linear.Affine (Point(..))
-import qualified SDL.Mixer as Mixer -- Importamos como Mixer
+import qualified SDL.Mixer as Mixer 
 import qualified Data.Map as M
 
 import Types
@@ -86,13 +86,11 @@ playMusicForLevel :: Int -> Game ()
 playMusicForLevel nivel = do
     res <- gets resources
     let musicaMap = rMusic res
-    
     case M.lookup nivel musicaMap of
         Nothing -> return ()
         Just song -> do
             liftIO $ Mixer.haltMusic
-            liftIO $ Mixer.playMusic Mixer.Forever song -- Corregido: Usa Mixer.Forever
-
+            liftIO $ Mixer.playMusic Mixer.Forever song
 -- ==========================================
 -- 2. COMBATE Y XP
 -- ==========================================
@@ -187,6 +185,7 @@ registrarEncuentro cls = do
         agregarLog msg
         modify $ \s -> s { encounteredTypes = cls : encounteredTypes s }
 
+
 realizarAtaque :: AttackType -> Word32 -> Game ()
 realizarAtaque tipo ticks = do
     st <- get
@@ -210,6 +209,16 @@ realizarAtaque tipo ticks = do
     let dmgPotencial = dmgBase + bonus
     let victimas = filter (\e -> not (entDead e) && esGolpeado pj e esArea) enemigos
 
+    -- LÓGICA DE SFX DE ATAQUE (Fusión correcta)
+    let res = resources st
+    if null victimas 
+        then liftIO $ case rSfxMiss res of
+                Just sfx -> Mixer.play sfx -- SONIDO FALLO
+                Nothing -> return ()
+        else liftIO $ case rSfxAttack res of
+                Just sfx -> Mixer.play sfx -- SONIDO GOLPE
+                Nothing -> return ()
+
     unless (null victimas) $ do
         forM_ victimas $ \v -> registrarEncuentro (entClass v)
         
@@ -222,7 +231,7 @@ realizarAtaque tipo ticks = do
                 let muerto = nuevaHp == 0
                 let xp = if muerto then entXp e else 0
                 
-                -- REPRODUCIR SONIDO DE DAÑO (Corregido: Mixer.play)
+                -- SONIDO DE DAÑO AL ENEMIGO
                 stSfx <- get
                 let resSfx = resources stSfx
                 when (dmgTotal > 0) $ liftIO $ case rSfxDamage resSfx of
@@ -292,8 +301,6 @@ ganarXP ent xpGanada =
 
 -- ==========================================
 -- 3. ITEMS Y RECOLECCIÓN
--- ==========================================
-
 pickUpItem :: Word32 -> Game ()
 pickUpItem ticks = do
     st <- get
@@ -312,17 +319,23 @@ pickUpItem ticks = do
                     PotionFuerza -> (pj { entBuffAtkEnd = ticks + buffDuration }, "¡Fuerza aumentada!")
                     PotionInvisibilidad -> (pj { entInvEnd = ticks + buffDuration, entInvisible = True }, "¡Eres invisible!")
                     PotionVelocidad -> (pj { entBuffSpdEnd = ticks + buffDuration }, "¡Velocidad aumentada!")
-                    PotionVeneno -> (pj {entHp = max 0 (entHp pj - 5)}, "¡Veneno! -5 HP")
+                    PotionVeneno -> (pj { entHp = max 0 (entHp pj - 5) }, "¡Veneno! -5 HP")
                     _ -> (pj, "Item desconocido")
 
             modify $ \s -> s { player = pjEfecto, mapItems = nuevaListaItems }
 
-            when (tipo == PotionVeneno) $ do
-                stActual <- get
-                let res = resources stActual
-                liftIO $ case rSfxDamage res of
-                    Just sfx -> Mixer.play sfx -- Corregido: Mixer.play
-                    Nothing -> return ()
+            -- SONIDOS DE POCIÓN (Limpio)
+            stActual <- get
+            let res = resources stActual
+            
+            if tipo == PotionVeneno 
+                then liftIO $ case rSfxDamage res of -- Suena como daño
+                        Just sfx -> Mixer.play sfx
+                        Nothing -> return ()
+                else liftIO $ case rSfxPotion res of -- Suena como powerup
+                        Just sfx -> Mixer.play sfx
+                        Nothing -> return ()
+
             agregarLog logMsg
 
 -- ==========================================

@@ -61,20 +61,22 @@ cargarRecursos r = do
     -- FUENTE
     miFuente <- loadFontSafe "assets/PressStart2P.ttf" 12
 
-    -- MÚSICA (Carga Segura)
+    -- MÚSICA (Tu lógica de niveles)
     musicLvl1Maybe <- loadMusicSafe "assets/music.mp3"
     musicLvl2Maybe <- loadMusicSafe "assets/boss.mp3"
 
-    -- Construimos la lista para el mapa filtrando los Nothings
     let listaMusica = case (musicLvl1Maybe, musicLvl2Maybe) of
             (Just m1, Just m2) -> [(1, m1), (2, m2)]
-            (Just m1, Nothing) -> [(1, m1)] -- Si falla boss, usa nivel 1? O nada.
+            (Just m1, Nothing) -> [(1, m1)]
             _ -> []
 
-    -- SFX (Del equipo)
+    -- SFX (De tus compañeros)
     sfxPasos <- loadChunkSafe "Music/human_walk_stone.ogg"
     sfxDano <- loadChunkSafe "Music/human_damage.ogg"
     sfxMuerte <- loadChunkSafe "Music/human_death_spin.ogg"
+    sfxAtaque <- loadChunkSafe "Music/human_atk_sword.ogg"
+    sfxFallo  <- loadChunkSafe "Music/sword_miss.ogg"
+    sfxPocion <- loadChunkSafe "Music/human_charge.ogg"
 
     return $ Resources
         { rTextures = fromList
@@ -95,9 +97,12 @@ cargarRecursos r = do
             ]
         , rFont     = miFuente
         
-        -- AQUI ESTÁ LA FUSIÓN
-        , rMusic    = fromList listaMusica
+        -- ESTRUCTURA FINAL LIMPIA
+        , rMusic      = fromList listaMusica
         , rSfxStep    = sfxPasos
         , rSfxDamage  = sfxDano
         , rSfxDeath   = sfxMuerte
+        , rSfxAttack  = sfxAtaque
+        , rSfxMiss    = sfxFallo
+        , rSfxPotion  = sfxPocion
         }

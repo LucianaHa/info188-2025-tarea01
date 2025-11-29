@@ -48,11 +48,14 @@ data Resources = Resources
     { rTextures   :: AssetManager
     , rFont       :: Maybe SDL.Font.Font
     
-    -- FUSIÓN: Tu mapa de niveles + Los SFX del equipo
-    , rMusic      :: Map Int Mixer.Music  -- Música de fondo por nivel
-    , rSfxStep    :: Maybe Mixer.Chunk    -- Pasos
-    , rSfxDamage  :: Maybe Mixer.Chunk    -- Daño
-    , rSfxDeath   :: Maybe Mixer.Chunk    -- Muerte
+    -- ESTRUCTURA FUSIONADA LIMPIA
+    , rMusic      :: Map Int Mixer.Music  -- Música por niveles (Tu aporte)
+    , rSfxStep    :: Maybe Mixer.Chunk    -- SFX Pasos (Equipo)
+    , rSfxDamage  :: Maybe Mixer.Chunk    -- SFX Daño
+    , rSfxDeath   :: Maybe Mixer.Chunk    -- SFX Muerte
+    , rSfxAttack  :: Maybe Mixer.Chunk    -- SFX Ataque
+    , rSfxMiss    :: Maybe Mixer.Chunk    -- SFX Fallo
+    , rSfxPotion  :: Maybe Mixer.Chunk    -- SFX Poción
     }
 
 data Entity = Entity {
@@ -93,7 +96,7 @@ data Entity = Entity {
     entDeathTick :: Word32,
     entRegenTick :: Word32,
     
-    entStepTimer :: Word32 -- Timer para sonido de pasos
+    entStepTimer :: Word32
 } deriving (Show, Eq)
 
 data GameState = GameState {
