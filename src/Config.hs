@@ -1,30 +1,34 @@
 module Config where
 
 import Foreign.C.Types (CInt)
-import Data.Word (Word32) 
+import Data.Word (Word32)
 
 -- TAMAÑOS
 heroSize :: CInt
-heroSize = 32 -- 128 / 4 = 32 Píxeles por sprite (Héroe y Ogro)
+heroSize = 32
 
 tileSizeSource :: CInt
-tileSizeSource = 16 -- Tamaño original de los tiles del dungeon.png
+tileSizeSource = 16
 
 tilesetCols :: CInt
-tilesetCols = 6 
+tilesetCols = 6
 
 heroStartY :: CInt
 heroStartY = 144
 
 -- PANTALLA
 screenSize :: CInt
-screenSize = 64 
+screenSize = 64
 
 walkSpeed :: CInt
 walkSpeed = 4
 
 aggroRange :: CInt
 aggroRange = 320
+
+-- NUEVO: Rango de visión del Zombie (480px = 7.5 bloques)
+zombieAggroRange :: CInt
+zombieAggroRange = 480
 
 attackRange :: CInt
 attackRange = 60
@@ -45,19 +49,18 @@ xpToLevelUp = 100
 enemyAttackInterval :: Word32
 enemyAttackInterval = 1000
 
--- NUEVAS CONSTANTES PARA ANIMACIÓN DEL HÉROE
+-- ANIMACIÓN
 heroFramesPerDirection :: CInt
-heroFramesPerDirection = 4 
+heroFramesPerDirection = 4
 
--- FILAS DE ANIMACIÓN EN hero.png / ogre.png
 heroRowDown :: CInt
-heroRowDown = 0 * heroSize 
+heroRowDown = 0 * heroSize
 
 heroRowLeft :: CInt
-heroRowLeft = 1 * heroSize 
+heroRowLeft = 1 * heroSize
 
 heroRowRight :: CInt
-heroRowRight = 3 * heroSize -- Ajustado
+heroRowRight = 3 * heroSize
 
 heroRowUp :: CInt
-heroRowUp = 2 * heroSize -- Ajustado
+heroRowUp = 2 * heroSize

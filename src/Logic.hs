@@ -8,16 +8,15 @@ import Control.Monad (when, unless, forM, forM_)
 import Data.Word (Word32)
 import Foreign.C.Types (CInt)
 import Data.List (find)
-import Linear.Affine (Point(..)) 
-import Config 
+import Linear.Affine (Point(..))
+import Config
 
 import Types
 import Config
 import Maps
 
 -- ==========================================
--- 1. UTILIDADES Y CONSTANTES DE MENÚ
--- ... (distL1, randomRango, agregarLog, getDirVec, btnW, etc. quedan iguales)
+-- 1. UTILIDADES
 -- ==========================================
 
 distL1 :: V2 CInt -> V2 CInt -> CInt
@@ -41,28 +40,28 @@ getDirVec Izquierda = V2 (-1) 0
 getDirVec Derecha   = V2 1 0
 
 btnW, btnH, btnYJugar, btnYSalir, btnX :: CInt
-btnW      = 405 
-btnH      = 112 
+btnW      = 405
+btnH      = 112
 btnX      = (windowW - btnW) `div` 2
 btnYJugar = windowH `div` 2 - 270
 btnYSalir = windowH `div` 2 - 145
 
 isClickInside :: V2 CInt -> CInt -> CInt -> CInt -> CInt -> Bool
-isClickInside (V2 clickX clickY) rectX rectY rectW rectH = 
+isClickInside (V2 clickX clickY) rectX rectY rectW rectH =
     clickX >= rectX && clickX <= rectX + rectW &&
     clickY >= rectY && clickY <= rectY + rectH
 
 -- ==========================================
 -- 2. COMBATE Y XP
--- ... (atacar y ganarXP quedan iguales)
 -- ==========================================
+
 atacar :: Word32 -> Game ()
 atacar ticks = do
     st <- get
     let pj = player st
 
     when (ticks > entCooldown pj && not (entDead pj)) $ do
-        let dirVec = getDirVec (entDir pj) 
+        let dirVec = getDirVec (entDir pj)
         let zonaAtaque = entPos pj + (screenSize *^ dirVec)
 
         let enemigos = enemies st
@@ -77,11 +76,11 @@ atacar ticks = do
 
                 let enemigoActualizado = if estaMuerto
                         then enemigo { entHp = 0, entDead = True, entDeathTick = ticks, entAggro = False }
-                        else enemigo { entHp = nuevaVida, entAggro = True } 
+                        else enemigo { entHp = nuevaVida, entAggro = True }
 
                 let otros = filter (/= enemigo) enemigos
                 let nuevaLista = enemigoActualizado : otros
-                
+
                 let (pjXp, pjLvlMsg) = if estaMuerto
                                        then (ganarXP pj (entXp enemigo))
                                        else (pj, "")
@@ -109,12 +108,6 @@ ganarXP ent xpGanada =
                  }
             , "¡SUBISTE DE NIVEL! (Lvl " ++ show (entLevel ent + 1) ++ ")")
        else (ent { entXp = nuevaXp }, "")
--- ==========================================
-
-
--- ==========================================
--- 3. LOGICA DE JUEGO (IA MEJORADA)
--- ==========================================
 
 regenerarVida :: Entity -> Word32 -> Entity
 regenerarVida ent ticks =
@@ -122,27 +115,25 @@ regenerarVida ent ticks =
     then ent { entHp = min (entMaxHp ent) (entHp ent + 1), entRegenTick = ticks }
     else ent
 
--- NUEVA FUNCIÓN AUXILIAR: Avanzar el frame de animación de cualquier entidad
 updateEntityAnimation :: Entity -> Word32 -> Entity
-updateEntityAnimation ent ticks = 
-    let 
-        -- Velocidad de animación: 150ms por frame
+updateEntityAnimation ent ticks =
+    let
         animSpeed = 150
-        -- El frame de descanso es el 1 (el centro)
         idleFrame = 1
-        
-        -- Si se está moviendo Y es hora de actualizar el frame
-        (newFrame, newTimer) = 
+        (newFrame, newTimer) =
             if entIsMoving ent && ticks > entAnimTimer ent + animSpeed
-            then 
+            then
                 ((entAnimFrame ent + 1) `mod` fromIntegral heroFramesPerDirection, ticks)
-            else if not (entIsMoving ent) 
-            then 
-                (idleFrame, entAnimTimer ent) -- Si está quieto, forzar al frame de descanso
-            else 
+            else if not (entIsMoving ent)
+            then
+                (idleFrame, entAnimTimer ent)
+            else
                 (entAnimFrame ent, entAnimTimer ent)
     in ent { entAnimFrame = newFrame, entAnimTimer = newTimer }
 
+-- ==========================================
+-- 3. ACTUALIZACIÓN DE ENEMIGOS
+-- ==========================================
 
 actualizarEnemigos :: Word32 -> Game ()
 actualizarEnemigos ticks = do
@@ -151,25 +142,28 @@ actualizarEnemigos ticks = do
     let pj = player stInicial
 
     nuevosEnemigos <- forM listaEnemigos $ \e -> do
-        let eAnim = updateEntityAnimation e ticks -- <--- APLICAR ANIMACIÓN PRIMERO
-        
+        let eAnim = updateEntityAnimation e ticks
+
         if entDead eAnim
         then do
             if ticks > entDeathTick eAnim + respawnTime
             then return eAnim { entHp = entMaxHp eAnim, entDead = False, entPos = entOrigin eAnim, entAggro = False }
             else return eAnim
         else do
-            let eRegen = regenerarVida eAnim ticks -- Regen sobre el sprite animado
+            let eRegen = regenerarVida eAnim ticks
             let curr = entPos eRegen
             let dest = entPos pj
             let dist = distL1 curr dest
-            
-            -- ... (Resto de la lógica de IA y Movimiento) ...
-            
-            let tieneAggro = dist < aggroRange
+
+            -- LÓGICA DE VISIÓN DEL ZOMBIE
+            let visionRange = case entClass eRegen of
+                                Zombie -> zombieAggroRange
+                                _      -> aggroRange
+
+            let tieneAggro = dist < visionRange
             let eConEstado = eRegen { entAggro = tieneAggro }
 
-            if tieneAggro
+            eConAccion <- if tieneAggro
             then do
                 let diff = dest - curr
                 let (V2 dx dy) = diff
@@ -238,6 +232,8 @@ actualizarEnemigos ticks = do
                             let tiempoEspera = randomRango 500 1500 ticks
                             return eConEstado { entPatrolTimer = ticks + fromIntegral tiempoEspera }
 
+            return eConAccion
+
     enemigosMovidos <- mapM (\e -> if entIsMoving e && not (entDead e) then updateEntityMovement e else return e) nuevosEnemigos
 
     modify $ \s -> s { enemies = enemigosMovidos }
@@ -264,20 +260,18 @@ updateEntityMovement e = do
     let dest = entTarget e
     let diff = dest ^-^ curr
     let dist = distL1 curr dest
-    let speed = entSpeed e 
+    let speed = entSpeed e
 
     if dist <= speed
         then return e { entPos = dest, entIsMoving = False }
         else do
             let (V2 dx dy) = diff
             let signumVec = V2 (signum dx) (signum dy)
-            let step = speed *^ signumVec 
+            let step = speed *^ signumVec
             return e { entPos = curr + step }
--- ==========================================
-
 
 -- ==========================================
--- 4. UPDATE GENERAL (EVENTOS DE MOUSE Y TECLADO)
+-- 4. UPDATE GENERAL (INPUT)
 -- ==========================================
 
 isQuitEvent :: SDL.EventPayload -> Bool
@@ -286,7 +280,7 @@ isQuitEvent (SDL.KeyboardEvent k) = SDL.keyboardEventKeyMotion k == SDL.Pressed 
 isQuitEvent _ = False
 
 isLeftMouseClick :: SDL.EventPayload -> Bool
-isLeftMouseClick (SDL.MouseButtonEvent m) = 
+isLeftMouseClick (SDL.MouseButtonEvent m) =
     SDL.mouseButtonEventMotion m == SDL.Pressed && SDL.mouseButtonEventButton m == SDL.ButtonLeft
 isLeftMouseClick _ = False
 
@@ -300,20 +294,20 @@ handleTitleEvents events = do
         Just (SDL.MouseButtonEvent m) -> do
             let (P (V2 rawX rawY)) = SDL.mouseButtonEventPos m
             let clickPos = V2 (fromIntegral rawX) (fromIntegral rawY)
-            
+
             if isClickInside clickPos btnX btnYJugar btnW btnH
-            then do 
+            then do
                 agregarLog "¡Partida Iniciada por clic!"
                 modify $ \s -> s { gameMode = Playing }
-            
+
             else if isClickInside clickPos btnX btnYSalir btnW btnH
-            then do 
+            then do
                 modify $ \s -> s { shouldExit = True }
             else return ()
 
         Nothing -> return ()
-        
-        _ -> return () 
+
+        _ -> return ()
 
 handlePlayingEvents :: [SDL.EventPayload] -> Word32 -> Game ()
 handlePlayingEvents events ticks = do
@@ -338,19 +332,16 @@ handlePlayingEvents events ticks = do
   where
     isSpaceKey (SDL.KeyboardEvent k) = SDL.keyboardEventKeyMotion k == SDL.Pressed && SDL.keysymKeycode (SDL.keyboardEventKeysym k) == SDL.KeycodeSpace
     isSpaceKey _ = False
-    checkInput (vec, found) (SDL.KeyboardEvent k) 
-        | SDL.keyboardEventKeyMotion k == SDL.Pressed = 
+    checkInput (vec, found) (SDL.KeyboardEvent k)
+        | SDL.keyboardEventKeyMotion k == SDL.Pressed =
             case SDL.keysymKeycode (SDL.keyboardEventKeysym k) of
                 SDL.KeycodeUp -> (V2 0 (-1), True); SDL.KeycodeDown -> (V2 0 1, True); SDL.KeycodeLeft -> (V2 (-1) 0, True); SDL.KeycodeRight -> (V2 1 0, True); _ -> (vec, found)
     checkInput acc _ = acc
     determineDir (V2 0 (-1)) = Arriba; determineDir (V2 0 1) = Abajo; determineDir (V2 (-1) 0) = Izquierda; determineDir _ = Derecha
 
-
--- FUNCIÓN PRINCIPAL DE EVENTOS (Usa el modo de juego)
 handleEvents :: [SDL.EventPayload] -> Word32 -> Game ()
 handleEvents events ticks = do
     mode <- gets gameMode
-    
     case mode of
         TitleScreen -> handleTitleEvents events
         Playing     -> handlePlayingEvents events ticks
@@ -358,16 +349,11 @@ handleEvents events ticks = do
 updateGame :: Word32 -> Game ()
 updateGame ticks = do
     mode <- gets gameMode
-    when (mode == Playing) $ do 
+    when (mode == Playing) $ do
         st <- get
-        
-        -- 1. Actualizar Jugador (Movimiento + Regen + Animación)
         let pj = player st
         pjMovido <- if entIsMoving pj then updateEntityMovement pj else return pj
         let pjRegen = regenerarVida pjMovido ticks
-        let pjAnim = updateEntityAnimation pjRegen ticks -- Usar la nueva función auxiliar
-        
+        let pjAnim = updateEntityAnimation pjRegen ticks
         modify $ \s -> s { player = pjAnim }
-        
-        -- 2. Actualizar Enemigos
         actualizarEnemigos ticks
