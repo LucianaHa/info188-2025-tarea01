@@ -171,52 +171,63 @@ realizarAtaque tipo ticks = do
     let victimas = filter (\e -> not (entDead e) && esGolpeado pj e esArea) enemigos
 
     -- 4. Aplicar Daño y ACUMULAR XP
-    unless (null victimas) $ do
+    if null victimas
+        then do
+            -- CASO A: NO GOLPEASTE A NADIE (MISS)
+            let res = resources st
+            liftIO $ case rSfxMiss res of
+                Just sfx -> SDL.Mixer.play sfx
+                Nothing -> return ()
+        else do
+            let res = resources st
+            liftIO $ case rSfxAttack res of
+                Just sfx -> SDL.Mixer.play sfx
+                Nothing -> return ()
 
-        forM_ victimas $ \v -> registrarEncuentro (entClass v)
-        
-        -- Usamos mapAccumL o fold para procesar enemigos y sumar XP al mismo tiempo
-        -- Pero para hacerlo simple: Procesamos enemigos primero, luego sumamos XP.
-        
-        -- A) Calcular XP total ganada de los que van a morir
-        let xpGanadaTotal = sum [ entXp e | e <- victimas, (entHp e - dmgFinal) <= 0 ]
-
-        -- B) Actualizar lista de enemigos (herirlos o matarlos)
-        nuevosEnemigos <- forM enemigos $ \e -> do
-            if e `elem` victimas
-            then do
-                -- Backstab solo en ataque normal
-                let mult = if not esArea && esBackstab pj e then 1.5 else 1.0
-                let dmgTotal = floor (fromIntegral dmgFinal * mult)
-                let nuevaHp = max 0 (entHp e - dmgTotal)
-                let muerto = nuevaHp == 0
-                
-                return $ e { entHp = nuevaHp
-                           , entAggro = True
-                           , entDead = muerto
-                           , entDeathTick = if muerto then ticks else 0 
-                           }
-            else return e
+            forM_ victimas $ \v -> registrarEncuentro (entClass v)
             
-        -- C) Aplicar la XP al Jugador (¡AQUÍ ESTABA EL ERROR ANTES!)
-        -- Si ganamos XP, llamamos a ganarXP, que maneja el Level Up y la Vida Maxima
-        stUpdated <- get
-        let pjActualizado = player stUpdated -- Recuperamos al pj con animación
-        let (pjConLevelUp, msgLevel) = if xpGanadaTotal > 0 
-                                       then ganarXP pjActualizado xpGanadaTotal 
-                                       else (pjActualizado, "")
+            -- Usamos mapAccumL o fold para procesar enemigos y sumar XP al mismo tiempo
+            -- Pero para hacerlo simple: Procesamos enemigos primero, luego sumamos XP.
+            
+            -- A) Calcular XP total ganada de los que van a morir
+            let xpGanadaTotal = sum [ entXp e | e <- victimas, (entHp e - dmgFinal) <= 0 ]
 
-        -- D) Guardar TODO en el estado
-        modify $ \s -> s { enemies = nuevosEnemigos, player = pjConLevelUp }
-        
-        -- Logs
-        let nVictimas = length victimas
-        if esArea 
-            then agregarLog $ "¡Giro! Golpeas a " ++ show nVictimas ++ " enemigos."
-            else agregarLog $ "¡Golpe! Daño: " ++ show dmgFinal
-        
-        -- Log de nivel
-        when (msgLevel /= "") $ agregarLog msgLevel
+            -- B) Actualizar lista de enemigos (herirlos o matarlos)
+            nuevosEnemigos <- forM enemigos $ \e -> do
+                if e `elem` victimas
+                then do
+                    -- Backstab solo en ataque normal
+                    let mult = if not esArea && esBackstab pj e then 1.5 else 1.0
+                    let dmgTotal = floor (fromIntegral dmgFinal * mult)
+                    let nuevaHp = max 0 (entHp e - dmgTotal)
+                    let muerto = nuevaHp == 0
+                    
+                    return $ e { entHp = nuevaHp
+                            , entAggro = True
+                            , entDead = muerto
+                            , entDeathTick = if muerto then ticks else 0 
+                            }
+                else return e
+                
+            -- C) Aplicar la XP al Jugador (¡AQUÍ ESTABA EL ERROR ANTES!)
+            -- Si ganamos XP, llamamos a ganarXP, que maneja el Level Up y la Vida Maxima
+            stUpdated <- get
+            let pjActualizado = player stUpdated -- Recuperamos al pj con animación
+            let (pjConLevelUp, msgLevel) = if xpGanadaTotal > 0 
+                                        then ganarXP pjActualizado xpGanadaTotal 
+                                        else (pjActualizado, "")
+
+            -- D) Guardar TODO en el estado
+            modify $ \s -> s { enemies = nuevosEnemigos, player = pjConLevelUp }
+            
+            -- Logs
+            let nVictimas = length victimas
+            if esArea 
+                then agregarLog $ "¡Giro! Golpeas a " ++ show nVictimas ++ " enemigos."
+                else agregarLog $ "¡Golpe! Daño: " ++ show dmgFinal
+            
+            -- Log de nivel
+            when (msgLevel /= "") $ agregarLog msgLevel
 
 -- Detecta si un enemigo es golpeado según el tipo de ataque
 esGolpeado :: Entity -> Entity -> Bool -> Bool
@@ -267,29 +278,44 @@ pickUpItem ticks = do
     let pj = player st
     let items = mapItems st
 
+    -- Buscamos si hay un item en la posición del jugador que NO haya sido recogido
     case find (\i -> itemPos i == entPos pj && not (itemObtained i)) items of
         Nothing -> return ()
         Just itemFound -> do
             let tipo = itemType itemFound
+            
+            -- Actualizamos la lista de items (marcar como obtenido)
             let itemsRestantes = filter (\i -> itemPos i /= entPos pj) items
             let itemObtenido = itemFound { itemObtained = True }
             let nuevaListaItems = itemObtenido : itemsRestantes
 
+            -- Aplicamos el efecto al jugador
             let (pjEfecto, logMsg) = case tipo of
                     PotionFuerza -> (pj { entBuffAtkEnd = ticks + buffDuration }, "¡Fuerza aumentada!")
                     PotionInvisibilidad -> (pj { entInvEnd = ticks + buffDuration, entInvisible = True }, "¡Eres invisible!")
                     PotionVelocidad -> (pj { entBuffSpdEnd = ticks + buffDuration }, "¡Velocidad aumentada!")
-                    PotionVeneno -> (pj {entHp = max 0 (entHp pj - 5)}, "¡Veneno! -5 HP")
+                    PotionVeneno -> (pj { entHp = max 0 (entHp pj - 5) }, "¡Veneno! -5 HP")
                     _ -> (pj, "Item desconocido")
 
+            -- Guardamos los cambios en el estado
             modify $ \s -> s { player = pjEfecto, mapItems = nuevaListaItems }
 
-            when (tipo == PotionVeneno) $ do
-                stActual <- get
-                let res = resources stActual
-                liftIO $ case rSfxDamage res of
-                    Just sfx -> SDL.Mixer.play sfx
-                    Nothing -> return ()
+            -- == SONIDOS ==
+            stActual <- get
+            let res = resources stActual
+            
+            if tipo == PotionVeneno 
+                then do
+                    -- Si es veneno, suena como daño
+                    liftIO $ case rSfxDamage res of
+                        Just sfx -> SDL.Mixer.play sfx
+                        Nothing -> return ()
+                else do
+                    -- Si es cualquier otra poción, suena el Power-Up
+                    liftIO $ case rSfxPotion res of
+                        Just sfx -> SDL.Mixer.play sfx
+                        Nothing -> return ()
+
             agregarLog logMsg
 
 -- ==========================================

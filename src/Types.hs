@@ -52,6 +52,9 @@ data Resources = Resources
     , rSfxStep    :: Maybe SDL.Mixer.Chunk
     , rSfxDamage  :: Maybe SDL.Mixer.Chunk
     , rSfxDeath   :: Maybe SDL.Mixer.Chunk
+    , rSfxAttack  :: Maybe SDL.Mixer.Chunk
+    , rSfxMiss    :: Maybe SDL.Mixer.Chunk
+    , rSfxPotion  :: Maybe SDL.Mixer.Chunk
     }
 
 data Entity = Entity {

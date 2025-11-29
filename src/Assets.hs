@@ -55,6 +55,9 @@ cargarRecursos r = do
     sfxPasos <- loadChunkSafe "Music/human_walk_stone.ogg"
     sfxDano <- loadChunkSafe "Music/human_damage.ogg"
     sfxMuerte <- loadChunkSafe "Music/human_death_spin.ogg"
+    sfxAtaque <- loadChunkSafe "Music/human_atk_sword.ogg"
+    sfxFallo  <- loadChunkSafe "Music/sword_miss.ogg"
+    sfxPocion <- loadChunkSafe "Music/human_charge.ogg"
 
     -- == CARGA DE PERSONAJES ==
     texHeroe <- loadTexture r "Images/textures2D/Animations/hero.png"
@@ -88,4 +91,7 @@ cargarRecursos r = do
         , rSfxStep    = sfxPasos
         , rSfxDamage  = sfxDano
         , rSfxDeath   = sfxMuerte
+        , rSfxAttack  = sfxAtaque
+        , rSfxMiss    = sfxFallo
+        , rSfxPotion  = sfxPocion
         }
