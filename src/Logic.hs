@@ -294,9 +294,14 @@ ganarXP ent xpGanada =
        then (ent { entXp = nuevaXp - necesaria
                  , entLevel = entLevel ent + 1
                  , entNextLevel = floor (fromIntegral necesaria * 1.5)
-                 , entMaxHp = entMaxHp ent + 5
-                 , entHp = entMaxHp ent + 5
-                 }, "¡LEVEL UP! HP Aumentada.")
+                 
+                 -- MEJORAS DE ESTADÍSTICAS
+                 , entMaxHp = entMaxHp ent + 10   -- +10 Vida Máxima
+                 , entHp = entMaxHp ent + 5      -- Cura total al subir de nivel
+                 , entMinAtk = entMinAtk ent + 8 -- +8 Daño Mínimo 
+                 , entMaxAtk = entMaxAtk ent + 10 -- +10 Daño Máximo
+                 
+                 }, "¡LEVEL UP! +HP y +FUERZA")
        else (ent { entXp = nuevaXp }, "")
 
 -- ==========================================
