@@ -26,9 +26,14 @@ Proyecto/
     │       └── main_title.png
     └── textures2D/
         ├── Animations/
-        │   └── hero_walk.png
+        │   ├── cow-white.png
+        │   ├── hero.png
+        │   ├── ogre.png
+        │   ├── shield.png
+        │   ├── zombie.png
+        │   └── bladesHit.png
         └── Tiles/
-            └── grass.png
+            └── dungeon.png
 ```
 
 Compila y Ejecuta:
@@ -42,73 +47,67 @@ La primera vez tardará unos minutos porque descargará y compilará SDL2 para H
 Controles:
 
 Usa las Flechas del teclado para mover el cuadrado rojo (o tu personaje si pusiste la imagen hero_walk.png).
+Version 0.0.0.0.0.12
+Registro de Cambios (Changelog) ULTIMO PARCHE
 
-Usa Q para salir.
+A continuación se detallan las modificaciones, mejoras y nuevas funcionalidades implementadas sobre la versión base del proyecto.
 
+1. Nuevas Mecánicas de Combate
 
-Según gemini nuestro produck Backlog:
+    Sistema de Daño Direccional (Backstab):
 
-📋 Lista de Tareas (Backlog del Equipo)
+        Se implementó lógica vectorial (Producto Punto) para detectar la orientación de los combatientes.
 
-He dividido el trabajo en 4 grandes áreas. Puedes asignarlas a diferentes "miembros" del equipo o abordarlas secuencialmente.
+        Daño Frontal: x1.0 (Daño normal).
 
-🛠️ Área 1: Motor y Core (Engine Developer)
+        Daño por la Espalda: x1.5 (Crítico).
 
-El encargado de que "la ventana se abra y se mueva".
+    Habilidades Activas:
 
-    [ ] Configurar SDL2: Crear la función main que abre una ventana de 800x600 y crea un "Renderer".
+        Tecla Q (Ataque Normal): Golpe frontal de corto alcance con hitbox permisiva.
 
-    [ ] El Game Loop: Implementar el bucle infinito que corre a 60 FPS (Input -> Update -> Render).
+        Tecla W (Ataque en Área): Golpe circular (360°) que daña a múltiples enemigos cercanos con daño reducido.
 
-    [ ] Sistema de Input: Dejar de usar getLine. Capturar eventos de teclado (KeyDown, KeyUp) para mover al personaje (WASD o Flechas).
+    Mecánica de Escudo:
 
-    [ ] Carga de Assets: Crear funciones para cargar imágenes .png (spritesheets) y guardarlas en memoria.
+        El jugador ahora posee un escudo visual que indica su dirección de bloqueo.
 
-🧠 Área 2: Lógica RPG y Sistemas (Systems Designer)
+        El escudo rota dinámicamente según la dirección de la mirada (Arriba, Abajo, Izquierda, Derecha).
 
-El encargado de las matemáticas y reglas (Tu código actual evoluciona aquí).
+2. Mejoras Gráficas y Renderizado (2.5D)
 
-    [ ] Refactorizar GameState: Añadir coordenadas (x, y) al Personaje y al Enemigo.
+    Escalado de Sprites (Upscaling):
 
-    [ ] Sistema de Experiencia (XP):
+        Se modificó el motor de renderizado para separar la lógica de colisión (64px) del tamaño visual.
 
-        Agregar campos: xpActual, nivel, xpSiguienteNivel.
+        Héroe y Enemigos: Ahora se renderizan a 96px/128px (visual) manteniendo la casilla lógica de 64px, creando un efecto de profundidad (los pies se alinean a la base de la casilla y la cabeza sobresale).
 
-        Crear función ganarExperiencia :: Int -> Personaje -> Personaje que detecte el "Level Up".
+    Corrección de Spritesheets:
 
-    [ ] Sistema de Habilidades (Skills):
+        Implementación de lectura dinámica de sprites según la entidad (32px para Héroe/Zombies, 48px para Vaca/Jefes) para evitar glitches visuales.
 
-        Crear tipo data Habilidad = Fuego | Hielo | GolpeFuerte.
+    Efectos Visuales (VFX):
 
-        Asignar cooldowns (tiempo de espera) y costes de maná.
+        Escudo de Energía: Renderizado semi-transparente (Alpha Blending) con ajuste de posición dinámico (baja al mirar al frente para no tapar la cara, sube al mirar atrás).
 
-    [ ] Bestiario (Tipos de Monstruos):
+        Efectos de Espada: Se añadieron animaciones de "corte" y "giro" (hoja verde) al ejecutar ataques con Q y W.
 
-        Crear data TipoElemento = Fuego | Agua | Planta.
+3. Interfaz de Usuario (HUD)
 
-        Implementar tabla de debilidades (ej: Agua > Fuego).
+    Panel de Estadísticas: Se agregó un HUD en la esquina superior izquierda que muestra en tiempo real:
 
-🗺️ Área 3: Mundo y Mapas (Level Designer)
+        Vida Actual / Máxima.
 
-El encargado de dónde ocurre el juego.
+        Nivel Actual.
 
-    [ ] Estructura de Mapa: Definir el mapa no como texto, sino como una cuadrícula (Grid) o Matriz de enteros (Tilemap).
+        Experiencia (XP) acumulada / Siguiente Nivel.
 
-        Ej: 0 = Pasto, 1 = Muro, 2 = Agua.
+    Guía de Controles: Texto en pantalla recordando las teclas de acción (Q, W) y mecánicas clave.
 
-    [ ] Colisiones: Crear la lógica para que si el jugador intenta moverse a una coordenada que es "Muro", el estado no cambie.
+    Mensajes Temporales: Sistema de mensajes flotantes (ej: "Sube Nivel y Derrota a la Vaca") que aparecen al inicio del juego y desaparecen automáticamente tras 5 segundos.
 
-    [ ] Cambio de Niveles: Lógica para que al tocar un punto (ej: una puerta), se cargue una nueva matriz de mapa.
+    Logs de Combate: Se mejoró el feedback en el log de texto para indicar daño crítico y número de enemigos golpeados por área.
 
-👥 Área 4: NPCs e Interacción (Narrative & AI)
-
-El encargado de dar vida al mundo.
-
-    [ ] Entidad NPC: Crear tipo de dato NPC con nombre, posicion y dialogos.
-
-    [ ] Sistema de Diálogo: Dibujar una caja de texto en la parte inferior de la pantalla cuando el jugador presiona "Espacio" cerca de un NPC.
-
-    [ ] IA Básica de Enemigos: Hacer que el lobo se mueva aleatoriamente o persiga al jugador si está cerca.
 
 
 
@@ -129,10 +128,6 @@ Pasos según gemini:
     * Controlados por `escena :: EscenaJuego`. Si el estado cambia a `GameOver`, el bucle de renderizado deja de dibujar el mapa y dibuja la imagen que tengas en la carpeta GameOver.
 5.  **`WindowSkins/`**:
     * En `ConfiguracionUI`, guardamos qué skin se está usando. Al dibujar cajas de texto, usas esa referencia.
-
-### ¿Cuál es el siguiente paso para conectarlo con gráficos?
-
-Ahora que tienes la **Monada State** que controla los *números y estados*, el siguiente paso (cuando integremos SDL2) será crear una función `render` que sea "solo lectura":
 
 ## PRompt y Respuesta gemini del uso de monada
 Existira una forma de mostrar mas implicito este uso de GameState? La verdad nunca termine de entender bien que es una monada podrías empezar por ahi? y por que GameState es una monada? donde esta declarado eso? o al comportarse como monada esta implicito que lo es
@@ -187,90 +182,7 @@ instance Monad (State s) where
     return x = ...
     (>>=)    = ...
 
-
-Al hacer `import Control.Monad.State`, automáticamente obtienes el "carnet de Mónada" para `StateT`.
-
------
-
- 3\. Haciendo visible lo invisible (El operador `>>=`)
-
-Preguntaste si se puede hacer *más* implícito. La respuesta es: **El bloque `do` YA ES la forma implícita.**
-
-Para que entiendas la "magia", voy a mostrarte cómo se ve tu código **SIN** la notación `do`. Vas a ver cómo la Mónada conecta las tuberías manualmente.
-
- Versión "Mágica" (Tu código actual con `do`)
-
-Haskell traduce esto automáticamente. Mira qué limpio se ve:
-
-```haskell
-moverYAnimar :: Game ()
-moverYAnimar = do
-    moverPersonaje    -- 1. Modifica posición
-    actualizarFrame   -- 2. Modifica frame
-    render            -- 3. Usa los datos modificados
-
-
- Versión "Desazucarada" (Lo que Haskell ve realmente)
-
-Aquí aparece el operador **`>>=`** (se lee "bind" o "entonces"). Este operador es el corazón de la mónada. Toma el estado resultante de la izquierda e inyéctalo en la derecha.
-
-```haskell
-moverYAnimar :: Game ()
-moverYAnimar = 
-    moverPersonaje >>= (\_ ->
-        actualizarFrame >>= (\_ ->
-            render
-        )
-    )
-
-
- Versión "Pesadilla" (Sin usar la Mónada State)
-
-Si no usáramos `StateT` y quisiéramos hacer lo mismo pasando el estado a mano (Programación funcional pura cruda):
-
-```haskell
-moverYAnimar :: GameState -> ((), GameState)
-moverYAnimar estado1 = 
-    let (resultado1, estado2) = moverPersonaje estado1
-    in let (resultado2, estado3) = actualizarFrame estado2
-       in render estado3
-
-
-**¿Ves la diferencia?**
-
-1.  En la **Versión Pesadilla**, tienes que crear `estado1`, `estado2`, `estado3`... Si te equivocas y pasas `estado1` a `render`, ¡tu personaje pierde el movimiento\!
-2.  La **Mónada State (`StateT`)** oculta esa gestión de `estado1 -> estado2 -> estado3`.
-3.  El bloque **`do`** oculta el operador `>>=` para que parezca código imperativo (como Python o C).
-
- 4\. ¿Cómo aprovechar esto en tu juego?
-
-Ahora que sabes que la mónada es solo un "transportador de estado automático", puedes usarla para simplificar tu vida.
-
-No necesitas declarar nada nuevo. Solo confía en que si estás dentro de una función que devuelve `Game a`, tienes acceso a:
-
-1.  **Leer:** `st <- get` (Dame la versión más actual de la libreta).
-2.  **Escribir:** `put nuevoSt` (Toma esta libreta tachada y úsala de ahora en adelante).
-3.  **Modificar:** `modify (\s -> ...)` (Haz un cambio rápido en la libreta).
-
-**Ejemplo Práctico para tu RPG:**
-
-Imagina una función para "Beber Poción".
-Sin monada sería complejo actualizar inventario, vida y log. Con monada:
-
-```haskell
-beberPocion :: Game ()
-beberPocion = do
-    -- 1. Curar (Modifica HP)
-    modify (\s -> s { playerHp = playerHp s + 50 })
-    
-    -- 2. Gastar item (Modifica Inventario)
-    -- La monada se asegura de que el cambio de HP de arriba NO SE PIERDA
-    modify (\s -> s { inventory = quitarPocion (inventory s) })
-    
-    -- 3. Efecto visual (IO)
-    liftIO $ putStrLn "¡Glu glu glu! Recuperaste vida."
 ```
-
 
 ### Resumen
 
