@@ -149,71 +149,80 @@ realizarAtaque tipo ticks = do
     let enemigos = enemies st
 
     -- 1. Iniciar Animación y Cooldown
+    -- Usamos entCooldown base de la clase (para que el Paladin sea lento y la Chamana rapida si quisieras)
+    let cooldownBase = if entClass pj == Paladin then 1000 else 800 
+
     let pjAnim = pj { entAttackType = tipo
                     , entAttackTimer = ticks + atkDuration
-                    , entCooldown = ticks + 800
+                    , entCooldown = ticks + fromIntegral cooldownBase
                     } 
-    -- Guardamos el estado inicial del ataque
     put st { player = pjAnim }
 
-    -- 2. Definir Daño
+    -- 2. CÁLCULO DE DAÑO (Integrado con las clases de tus compañeros)
+    -- Calculamos daño aleatorio basado en los stats de la clase actual
+    let dmgRnd = randomRango (entMinAtk pj) (entMaxAtk pj) ticks
+    
     let (dmgBase, esArea) = case tipo of
-            AtkNormal -> (damageNormal, False)
-            AtkArea   -> (damageArea, True)
+            AtkNormal -> (dmgRnd, False)       -- Q: Usa los stats del personaje
+            AtkArea   -> (damageArea, True)    -- W: Daño fijo de área (definido en Config)
             _         -> (0, False)
 
+    -- Bonus de poción
     let bonus = if entBuffAtkEnd pj > ticks then 5 else 0
-    let dmgFinal = dmgBase + bonus
+    let dmgPotencial = dmgBase + bonus
 
     -- 3. Filtrar enemigos golpeados
     let victimas = filter (\e -> not (entDead e) && esGolpeado pj e esArea) enemigos
 
-    -- 4. Aplicar Daño y ACUMULAR XP
+    -- 4. Aplicar Daño, XP y Logs Detallados
     unless (null victimas) $ do
 
+        -- Registrar avistamiento (para el log gracioso de "Una vaca!")
         forM_ victimas $ \v -> registrarEncuentro (entClass v)
         
-        -- Usamos mapAccumL o fold para procesar enemigos y sumar XP al mismo tiempo
-        -- Pero para hacerlo simple: Procesamos enemigos primero, luego sumamos XP.
-        
-        -- A) Calcular XP total ganada de los que van a morir
-        let xpGanadaTotal = sum [ entXp e | e <- victimas, (entHp e - dmgFinal) <= 0 ]
-
-        -- B) Actualizar lista de enemigos (herirlos o matarlos)
-        nuevosEnemigos <- forM enemigos $ \e -> do
+        -- Procesamos daño y recolectamos resultados individuales
+        results <- forM enemigos $ \e -> do
             if e `elem` victimas
             then do
-                -- Backstab solo en ataque normal
+                -- Backstab (Solo en ataque normal Q)
                 let mult = if not esArea && esBackstab pj e then 1.5 else 1.0
-                let dmgTotal = floor (fromIntegral dmgFinal * mult)
+                let dmgTotal = floor (fromIntegral dmgPotencial * mult)
+                
                 let nuevaHp = max 0 (entHp e - dmgTotal)
                 let muerto = nuevaHp == 0
+                let xp = if muerto then entXp e else 0
                 
-                return $ e { entHp = nuevaHp
-                           , entAggro = True
-                           , entDead = muerto
-                           , entDeathTick = if muerto then ticks else 0 
-                           }
-            else return e
-            
-        -- C) Aplicar la XP al Jugador (¡AQUÍ ESTABA EL ERROR ANTES!)
-        -- Si ganamos XP, llamamos a ganarXP, que maneja el Level Up y la Vida Maxima
+                let eNew = e { entHp = nuevaHp
+                             , entAggro = True
+                             , entDead = muerto
+                             , entDeathTick = if muerto then ticks else 0 
+                             }
+                return (eNew, Just dmgTotal, xp)
+            else 
+                return (e, Nothing, 0)
+
+        -- Separar resultados
+        let nuevosEnemigos = map (\(e,_,_) -> e) results
+        let damages = [ d | (_, Just d, _) <- results ] -- Lista de daños reales
+        let xpTotal = sum [ x | (_, _, x) <- results ]
+
+        -- Actualizar Player con XP ganada
         stUpdated <- get
-        let pjActualizado = player stUpdated -- Recuperamos al pj con animación
-        let (pjConLevelUp, msgLevel) = if xpGanadaTotal > 0 
-                                       then ganarXP pjActualizado xpGanadaTotal 
+        let pjActualizado = player stUpdated
+        let (pjConLevelUp, msgLevel) = if xpTotal > 0 
+                                       then ganarXP pjActualizado xpTotal 
                                        else (pjActualizado, "")
 
-        -- D) Guardar TODO en el estado
         modify $ \s -> s { enemies = nuevosEnemigos, player = pjConLevelUp }
+
+        -- LOGS MEJORADOS (Suma visual)
+        let dmgString = foldl (\acc d -> if acc == "" then show d else acc ++ "+" ++ show d) "" damages
         
-        -- Logs
-        let nVictimas = length victimas
-        if esArea 
-            then agregarLog $ "¡Giro! Golpeas a " ++ show nVictimas ++ " enemigos."
-            else agregarLog $ "¡Golpe! Daño: " ++ show dmgFinal
-        
-        -- Log de nivel
+        let msgHit = if esArea 
+                     then "¡Giro! Daño: (" ++ dmgString ++ ")" 
+                     else "¡Golpe! Daño: " ++ dmgString ++ (if length damages > 1 then " (Total)" else "") ++ (if esBackstab pj (head victimas) && not esArea then " [CRIT]" else "")
+
+        agregarLog msgHit
         when (msgLevel /= "") $ agregarLog msgLevel
 
 -- Detecta si un enemigo es golpeado según el tipo de ataque
