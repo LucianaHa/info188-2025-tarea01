@@ -27,7 +27,7 @@ cargarRecursos r = do
     texShield <- loadTexture r "Images/textures2D/Animations/shield.png"
     -- NUEVO: Game Over
     texGameOver <- loadTexture r "Images/HUD/GameOver/background.png"
-
+    texBlades <- loadTexture r "Images/textures2D/Animations/bladesHit.png"
     texHeroe <- loadTexture r "Images/textures2D/Animations/hero.png"
     texOgre <- loadTexture r "Images/textures2D/Animations/ogre.png"
     texZombie <- loadTexture r "Images/textures2D/Animations/zombie.png"
@@ -46,6 +46,7 @@ cargarRecursos r = do
             , ("cow", texCow)
             , ("items", texItems)
             , ("shield",texShield)
+            , ("fx_blade", texBlades)
             ]
         , rFont     = miFuente
         }

@@ -78,10 +78,10 @@ main = do
     let allFloorPositions = getFloorPositions mapaSuelo
 
     let itemsToSpawn = [ PotionFuerza, PotionFuerza
-    											, PotionVelocidad, PotionVelocidad
-    											, PotionVeneno, PotionVeneno,
-    												PotionInvisibilidad, PotionInvisibilidad
-    											]
+                        , PotionVelocidad, PotionVelocidad
+                        , PotionVeneno, PotionVeneno
+                        , PotionInvisibilidad, PotionInvisibilidad
+                        ]
 
     randomItems <- createRandomItems itemsToSpawn allFloorPositions
 
@@ -107,10 +107,12 @@ main = do
 
         entBaseMinAtk = 6,
         entBaseMaxAtk = 8,
-        entBaseSpeed = 8
+        entBaseSpeed = 8,
+
+        entAttackType  = NoAttack, 
+        entAttackTimer = 0
 
     }
-
     let orcoPos = V2 (10 * screenSize) (45 * screenSize)
     let orco = Entity {
         entPos = orcoPos, entTarget = orcoPos, entOrigin = orcoPos,
@@ -132,7 +134,10 @@ main = do
         entBaseMinAtk = 2,
         entBaseMaxAtk = 4,
         entBaseSpeed  = 3,
-        entDead = False, entDeathTick = 0, entRegenTick = 0
+        entDead = False, entDeathTick = 0, entRegenTick = 0,
+
+        entAttackType = NoAttack,
+        entAttackTimer = 0
     }
 
     let zombiePos = V2 (15 * screenSize) (10 * screenSize)
@@ -159,7 +164,10 @@ main = do
         entBaseMinAtk = 1,
         entBaseMaxAtk = 2,
         entBaseSpeed  = 5,
-        entDead = False, entDeathTick = 0, entRegenTick = 0
+        entDead = False, entDeathTick = 0, entRegenTick = 0,
+
+        entAttackType = NoAttack,
+        entAttackTimer = 0
     }
 
     let cowPos = V2 (45 * screenSize) (30 * screenSize)
@@ -187,9 +195,11 @@ main = do
         entBaseMaxAtk = 8,
         entBaseSpeed  = 10,
 
-        entDead = False, entDeathTick = 0, entRegenTick = 0
-    }
+        entDead = False, entDeathTick = 0, entRegenTick = 0,
 
+        entAttackType = NoAttack,
+        entAttackTimer = 0
+    }
     let estadoInicial = GameState {
         player      = jugador,
         enemies     = [orco, zombie, vaca],
@@ -200,6 +210,7 @@ main = do
         shouldExit  = False,
         gameMode    = TitleScreen,
         menuSelection = 0,
+        gameStartTime = 0,
         gameOverTimer = 0 -- Inicializado en 0
     }
 

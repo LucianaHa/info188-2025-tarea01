@@ -8,7 +8,8 @@ module Types (
     Entity(..),
     GameState(..),
     Game,
-    GameMode(..)
+    GameMode(..),
+    AttackType(..)
 ) where
 
 import qualified SDL
@@ -27,6 +28,9 @@ data Direccion = Abajo | Izquierda | Derecha | Arriba
     deriving (Show, Eq)
 
 data Clase = Guerrero | Mago | Asesino | Orco | Esqueleto | Zombie | Vaca
+    deriving (Show, Eq)
+
+data AttackType = NoAttack | AtkNormal | AtkArea
     deriving (Show, Eq)
 
 data ItemType = PotionFuerza | PotionInvisibilidad | PotionVelocidad | PotionVeneno
@@ -76,6 +80,9 @@ data Entity = Entity {
     entBaseMaxAtk :: Int,    -- Máximo ataque base
     entBaseSpeed  :: CInt,   -- Velocidad base
 
+    entAttackType  :: AttackType, 
+    entAttackTimer :: Word32,
+
     entDead      :: Bool,
     entDeathTick :: Word32,
     entRegenTick :: Word32
@@ -91,7 +98,7 @@ data GameState = GameState {
     shouldExit  :: Bool,
     gameMode    :: GameMode,
     menuSelection :: Int,
-
+    gameStartTime :: Word32,
     -- AÑADIDO: Para contar los 5 segundos de Game Over
     gameOverTimer :: Word32
 }

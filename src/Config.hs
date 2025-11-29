@@ -33,6 +33,18 @@ zombieAggroRange = 480
 cowAggroRange :: CInt
 cowAggroRange = 200
 
+atkDuration :: Word32
+atkDuration = 300 -- La animación dura 300ms
+
+damageNormal :: Int
+damageNormal = 10
+
+damageArea :: Int
+damageArea = 5
+
+rangeArea :: CInt
+rangeArea = 100
+
 attackRange :: CInt
 attackRange = 60
 

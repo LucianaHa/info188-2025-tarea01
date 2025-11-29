@@ -9,7 +9,7 @@ import Control.Monad (when, forM_, unless, forM)
 import qualified Data.Map as M
 import qualified Data.Text as T
 import Foreign.C.Types (CInt, CDouble)
-import Data.Word (Word8)
+import Data.Word (Word8, Word32)
 
 import Types
 import Config
@@ -126,6 +126,105 @@ queryTextureSafe tex = do
     return (SDL.textureWidth info, SDL.textureHeight info)
 -- (Tus imports y funciones auxiliares siguen igual...)
 
+-- Función para dibujar texto simple
+renderText :: SDL.Renderer -> SDL.Font.Font -> Int -> Int -> String -> V4 Word8 -> Game ()
+renderText r font x y content color = do
+    let text = T.pack content
+    surface <- SDL.Font.blended font color text
+    dims <- SDL.surfaceDimensions surface
+    texture <- SDL.createTextureFromSurface r surface
+    let (V2 w h) = dims
+    let destRect = SDL.Rectangle (P (V2 (fromIntegral x) (fromIntegral y))) (V2 (fromIntegral w) (fromIntegral h))
+    SDL.copy r texture Nothing (Just destRect)
+    SDL.destroyTexture texture
+    SDL.freeSurface surface
+
+-- DIBUJAR ESTADÍSTICAS (HUD)
+
+renderMissionMessage :: SDL.Renderer -> Maybe SDL.Font.Font -> Word32 -> Word32 -> Game ()
+renderMissionMessage r Nothing _ _ = return ()
+renderMissionMessage r (Just font) currentTicks startTicks = do
+    -- Calculamos si han pasado menos de 5 segundos (5000 ms)
+    let timePassed = currentTicks - startTicks
+    
+    when (timePassed < 5000) $ do
+        let message = "Sube Nivel y Derrota a la Vaca"
+        let color = V4 255 255 0 255 -- Amarillo
+        let shadow = V4 0 0 0 255    -- Negro
+
+        -- Renderizamos el texto (usando tu librería de font)
+        textSurface <- SDL.Font.blended font color (T.pack message)
+        textDims <- SDL.surfaceDimensions textSurface
+        textTex <- SDL.createTextureFromSurface r textSurface
+        
+        -- Sombra
+        shadowSurface <- SDL.Font.blended font shadow (T.pack message)
+        shadowTex <- SDL.createTextureFromSurface r shadowSurface
+
+        let (V2 w h) = textDims
+        
+        -- Centrar en pantalla (1280x720)
+        let centerX = (1280 - fromIntegral w) `div` 2
+        let centerY = (720 - fromIntegral h) `div` 2 - 100 -- Un poco más arriba del centro
+
+        let rectShadow = SDL.Rectangle (P (V2 (centerX + 3) (centerY + 3))) (V2 (fromIntegral w) (fromIntegral h))
+        let rectText   = SDL.Rectangle (P (V2 centerX centerY)) (V2 (fromIntegral w) (fromIntegral h))
+
+        -- Dibujar sombra y luego texto
+        SDL.copy r shadowTex Nothing (Just rectShadow)
+        SDL.copy r textTex Nothing (Just rectText)
+
+        -- Limpiar
+        SDL.destroyTexture textTex
+        SDL.freeSurface textSurface
+        SDL.destroyTexture shadowTex
+        SDL.freeSurface shadowSurface
+
+
+renderHUD :: SDL.Renderer -> Maybe SDL.Font.Font -> Entity -> Game ()
+renderHUD r Nothing _ = return ()
+renderHUD r (Just font) pj = do
+    -- Configuración visual base
+    let startX = 20
+    let startY = 20
+    let lineHeight = 20
+    
+    -- Colores
+    let colorTexto = V4 255 255 255 255   -- Blanco
+    let colorSombra = V4 0 0 0 255        -- Negro (sombra)
+    let colorControls = V4 100 255 255 255 -- Cyan (para diferenciar los controles)
+
+    -- ===========================================
+    -- 1. ESTADÍSTICAS (HP, XP, LEVEL)
+    -- ===========================================
+    let txtHp  = "VIDA: " ++ show (entHp pj) ++ " / " ++ show (entMaxHp pj)
+    let txtLvl = "NIVEL: " ++ show (entLevel pj)
+    let txtXp  = "XP: " ++ show (entXp pj) ++ " / " ++ show (entNextLevel pj)
+    
+    -- Helper para dibujar línea con sombra
+    let drawLine y text color = do
+            renderText r font (startX + 2) (y + 2) text colorSombra -- Sombra
+            renderText r font startX y text color -- Texto principal
+
+    drawLine (startY + 0 * lineHeight) txtHp colorTexto
+    drawLine (startY + 1 * lineHeight) txtLvl colorTexto
+    drawLine (startY + 2 * lineHeight) txtXp colorTexto
+
+    -- ===========================================
+    -- 2. CONTROLES (MÁS ABAJO)
+    -- ===========================================
+    
+    -- Dejamos un espacio (gap) de 40px después de las stats
+    let controlsY = startY + (3 * lineHeight) + 20 
+
+    -- Dibujamos los textos de ayuda
+    drawLine (controlsY + 0 * lineHeight) "CONTROLES:" colorControls
+    drawLine (controlsY + 1 * lineHeight) "[Q] Ataque Normal" colorControls
+    drawLine (controlsY + 2 * lineHeight) "[W] Ataque en Area" colorControls
+    drawLine (controlsY + 3 * lineHeight) "Daño por espalda x1.5" colorControls
+
+
+
 renderEntity :: SDL.Renderer -> M.Map String SDL.Texture -> Entity -> V2 CInt -> Game ()
 renderEntity r texs ent cameraOffset = do
     let entClass' = entClass ent
@@ -216,6 +315,64 @@ renderEntity r texs ent cameraOffset = do
         let barPos = tileScreenPos + V2 0 (-106)
         drawHealthBar r barPos (entHp ent) (entMaxHp ent)
 
+    -- =======================================================
+    -- BLOQUE 4: DEBUG DE ATAQUE (CAJAS ROJAS)
+    -- =======================================================
+    
+    let atkType = entAttackType ent
+    
+    -- Solo dibujar si hay un ataque activo
+    when (atkType /= NoAttack) $ do
+        
+        -- 1. CONFIGURAR DIBUJO ROJO TRANSPARENTE
+        -- Guardamos el modo de mezcla anterior para no romper nada
+        oldBlend <- SDL.get (SDL.rendererDrawBlendMode r)
+        
+        -- Activamos mezcla (Alpha Blending) para que sea transparente
+        SDL.rendererDrawBlendMode r SDL.$= SDL.BlendAlphaBlend
+        
+        -- Color Rojo: R=255, G=0, B=0, Alpha=150 (Semitransparente)
+        SDL.rendererDrawColor r SDL.$= V4 255 0 0 150
+
+        -- 2. CALCULAR DÓNDE DIBUJAR LA CAJA
+        case atkType of
+            
+            -- CASO Q: Cuadrado frente al jugador
+            AtkNormal -> do
+                let offset = case entDir ent of
+                        Arriba    -> V2 0 (-screenSize) -- Una casilla arriba (-64)
+                        Abajo     -> V2 0 screenSize    -- Una casilla abajo (+64)
+                        Izquierda -> V2 (-screenSize) 0
+                        Derecha   -> V2 screenSize 0
+                
+                -- tileScreenPos es la esquina de TU casilla. Le sumamos el offset.
+                let attackPos = tileScreenPos + offset
+                
+                -- Dibujamos un cuadrado del tamaño de una casilla (64x64)
+                let rect = SDL.Rectangle (P attackPos) (V2 screenSize screenSize)
+                SDL.fillRect r (Just rect)
+
+            -- CASO W: Área grande centrada
+            AtkArea -> do
+                -- Queremos un área de radio 100 (aprox 3 casillas de ancho total)
+                let areaSize = 200 -- 100 de radio x 2
+                
+                -- Calculamos el centro para que quede sobre el jugador
+                -- (64 - 200) / 2 = -68. 
+                let offset = (screenSize - areaSize) `div` 2
+                let attackPos = tileScreenPos + V2 offset offset
+                
+                let rect = SDL.Rectangle (P attackPos) (V2 areaSize areaSize)
+                SDL.fillRect r (Just rect)
+            
+            _ -> return ()
+
+        -- 3. RESTAURAR ESTADO (IMPORTANTE)
+        -- Volvemos al modo de mezcla normal y color blanco/negro por defecto
+        SDL.rendererDrawBlendMode r SDL.$= oldBlend
+        SDL.rendererDrawColor r SDL.$= V4 0 0 0 255
+
+
 drawTitleScreen :: SDL.Renderer -> M.Map String SDL.Texture -> Int -> Game ()
 drawTitleScreen r texs sel = do
     case M.lookup "background" texs of
@@ -241,6 +398,7 @@ render :: Game ()
 render = do
     st <- get
     mode <- gets gameMode
+    currentTicks <- SDL.ticks
     let r = renderer st
     let res = resources st
 
@@ -279,8 +437,9 @@ render = do
                     renderEntity r texs (player st) cameraOffset
 
                 _ -> return ()
-
-            renderLog r (rFont res) (gameLog st) -- Lógica de Log (del compañero)
+            renderHUD r (rFont res) (player st)
+            renderLog r (rFont res) (gameLog st) -- Lógica de Log
+            renderMissionMessage r (rFont res) currentTicks (gameStartTime st)
             SDL.present r
 
   where
