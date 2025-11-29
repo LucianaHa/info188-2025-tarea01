@@ -207,7 +207,15 @@ instance Monad (State s) where
     (>>=)    = ...
 
 ```
+### Resumen
 
+  * **Monada:** Un patrón para encadenar acciones.
+  * **Tu Monada:** `StateT` (El transportador).
+  * **Tu Estado:** `GameState` (La carga).
+  * **Declaración:** Viene en la librería `mtl`.
+  * **Implicito:** El bloque `do` es "azúcar sintáctico" para no tener que pasar variables de estado manualmente una por una.
+
+¿Te ayuda esto a visualizar mejor por qué usamos `Game ()` en todas las funciones?
 ---
 
 ## Créditos y Referencias
@@ -222,14 +230,3 @@ Este proyecto fue desarrollado integrando conocimientos de la asignatura con her
 * **Sprites y Tilesets:** Los recursos visuales, incluyendo los sprites animados de los personajes (Héroe, Bruja, Chamana, Paladín), los enemigos (Orco, Zombie, Vaca) y los tiles del mapa, fueron obtenidos de la librería de assets de la aplicación gratuita **RPG Paper Maker**.
 * **Motor Gráfico:** Renderizado realizado mediante la librería [SDL2](https://www.libsdl.org/) y sus bindings para Haskell (`sdl2`, `sdl2-image`, `sdl2-ttf`).
 
----
-
-### Resumen
-
-  * **Monada:** Un patrón para encadenar acciones.
-  * **Tu Monada:** `StateT` (El transportador).
-  * **Tu Estado:** `GameState` (La carga).
-  * **Declaración:** Viene en la librería `mtl`.
-  * **Implicito:** El bloque `do` es "azúcar sintáctico" para no tener que pasar variables de estado manualmente una por una.
-
-¿Te ayuda esto a visualizar mejor por qué usamos `Game ()` en todas las funciones?
