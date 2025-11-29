@@ -19,6 +19,7 @@ import Foreign.C.Types (CInt)
 import Data.Map (Map)
 import Data.Word (Word32)
 import Control.Monad.State (StateT)
+import qualified SDL.Mixer
 
 -- AÑADIDO: GameOver
 data GameMode = TitleScreen | Playing | GameOver
@@ -45,8 +46,9 @@ data Item = Item {
 type AssetManager = Map String SDL.Texture
 
 data Resources = Resources
-    { rTextures :: AssetManager
-    , rFont     :: Maybe SDL.Font.Font
+    { rTextures   :: AssetManager
+    , rFont       :: Maybe SDL.Font.Font
+    , rMusicTitle :: Maybe SDL.Mixer.Music -- <--- NUEVO CAMPO
     }
 
 data Entity = Entity {

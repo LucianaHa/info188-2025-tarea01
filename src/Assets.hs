@@ -3,6 +3,7 @@ module Assets where
 import qualified SDL
 import qualified SDL.Image
 import qualified SDL.Font
+import qualified SDL.Mixer
 import Data.Map (fromList)
 import Control.Exception (try, SomeException)
 import Types (Resources(..))
@@ -19,6 +20,16 @@ loadFontSafe path size = do
             return Nothing
         Right font -> return (Just font)
 
+loadMusicSafe :: FilePath -> IO (Maybe SDL.Mixer.Music)
+loadMusicSafe path = do
+    result <- try (SDL.Mixer.load path) :: IO (Either SomeException SDL.Mixer.Music)
+    case result of
+        Left err -> do
+            -- ESTAS LINEAS SON NUEVAS:
+            putStrLn $ "ERROR CRÍTICO: " ++ show err 
+            putStrLn $ "ADVERTENCIA: No se pudo cargar: " ++ path
+            return Nothing
+        Right music -> return (Just music)
 
 cargarRecursos :: SDL.Renderer -> IO Resources
 cargarRecursos r = do
@@ -30,13 +41,14 @@ cargarRecursos r = do
     texItems <- loadTexture r "Images/HUD/Icons/Potions.png"
     miFuente <- loadFontSafe "assets/PressStart2P.ttf" 12
 
+    -- CARGAR LA MÚSICA
+    musicaTitulo <- loadMusicSafe "Music/titleMusic.ogg"
+
     -- == CARGA DE PERSONAJES ==
     texHeroe <- loadTexture r "Images/textures2D/Animations/hero.png"
     texOgre <- loadTexture r "Images/textures2D/Animations/ogre.png"
     texZombie <- loadTexture r "Images/textures2D/Animations/zombie.png"
     texCow <- loadTexture r "Images/textures2D/Animations/cow-white.png"
-    
-    -- ¡NUEVOS SPRITES! (Asegúrate que los nombres coinciden con tu carpeta)
     texPaladin <- loadTexture r "Images/textures2D/Animations/paladin.png"
     texBruja   <- loadTexture r "Images/textures2D/Animations/bruja.png"
     texChamana <- loadTexture r "Images/textures2D/Animations/chamana.png"
@@ -60,4 +72,5 @@ cargarRecursos r = do
             , ("chamana", texChamana)
             ]
         , rFont     = miFuente
+        , rMusicTitle = musicaTitulo
         }

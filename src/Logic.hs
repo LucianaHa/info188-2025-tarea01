@@ -9,6 +9,7 @@ import Data.Word (Word32)
 import Foreign.C.Types (CInt)
 import Data.List (find)
 import Linear.Affine (Point(..))
+import qualified SDL.Mixer
 
 import Types
 import Config
@@ -585,6 +586,16 @@ resetGame = do
     }
 updateGame :: Word32 -> Game ()
 updateGame ticks = do
+    -- Preguntamos si la música sigue sonando
+    musicPlaying <- SDL.Mixer.playingMusic
+    
+    unless musicPlaying $ do
+        -- Si se detuvo, la forzamos a arrancar de nuevo
+        st <- get
+        let res = resources st
+        case rMusicTitle res of -- Usamos rMusicTitle porque es la única que tenemos cargada
+            Just mus -> SDL.Mixer.playMusic SDL.Mixer.Forever mus
+            Nothing  -> return ()
     mode <- gets gameMode
     case mode of
         Playing -> do

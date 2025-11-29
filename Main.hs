@@ -11,6 +11,7 @@ import Control.Monad (unless)
 import System.Random (randomRIO)
 import Data.List (splitAt)
 import Foreign.C.Types(CInt)
+import qualified SDL.Mixer
 
 import Config
 import Types
@@ -66,12 +67,20 @@ main = do
     SDL.Image.initialize [SDL.Image.InitPNG]
     SDL.Font.initialize
 
+    let audioConfig = SDL.Mixer.Audio 48000 SDL.Mixer.FormatS16_Sys SDL.Mixer.Stereo
+    
+    SDL.Mixer.openAudio audioConfig 4096
+
     window <- SDL.createWindow "Haski RPG" SDL.defaultWindow {
         SDL.windowInitialSize = V2 windowW windowH
     }
     r <- SDL.createRenderer window (-1) SDL.defaultRenderer
 
     misRecursos <- cargarRecursos r
+
+    case rMusicTitle misRecursos of
+        Just mus -> SDL.Mixer.playMusic SDL.Mixer.Forever mus
+        Nothing  -> putStrLn "No hay música de título cargada."
 
     let startPos = V2 (54 * screenSize) (20 * screenSize)
 
@@ -191,6 +200,8 @@ main = do
 
     runStateT gameLoop estadoInicial
 
+    SDL.Mixer.closeAudio
+    SDL.Mixer.quit
     SDL.destroyRenderer r
     SDL.destroyWindow window
     SDL.Font.quit
