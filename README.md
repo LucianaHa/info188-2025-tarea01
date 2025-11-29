@@ -208,6 +208,22 @@ instance Monad (State s) where
 
 ```
 
+---
+
+## Créditos y Referencias
+
+Este proyecto fue desarrollado integrando conocimientos de la asignatura con herramientas modernas de desarrollo y recursos de arte libre.
+
+### Herramientas y Desarrollo
+* [cite_start]**Asistencia de IA:** Se utilizó **Google Gemini** como herramienta de apoyo para la comprensión profunda de conceptos teóricos (como la Mónada State), la depuración de errores de tipo en Haskell y la optimización de algoritmos de combate, cumpliendo con el uso responsable de IA sugerido en la pauta.
+* **Lenguaje:** [Haskell](https://www.haskell.org/) (GHC 8.8.4).
+
+### Recursos Gráficos (Arte)
+* **Sprites y Tilesets:** Los recursos visuales, incluyendo los sprites animados de los personajes (Héroe, Bruja, Chamana, Paladín), los enemigos (Orco, Zombie, Vaca) y los tiles del mapa, fueron obtenidos de la librería de assets de la aplicación gratuita **RPG Paper Maker**.
+* **Motor Gráfico:** Renderizado realizado mediante la librería [SDL2](https://www.libsdl.org/) y sus bindings para Haskell (`sdl2`, `sdl2-image`, `sdl2-ttf`).
+
+---
+
 ### Resumen
 
   * **Monada:** Un patrón para encadenar acciones.
