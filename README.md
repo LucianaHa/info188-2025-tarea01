@@ -223,7 +223,7 @@ instance Monad (State s) where
 Este proyecto fue desarrollado integrando conocimientos de la asignatura con herramientas modernas de desarrollo y recursos de arte libre.
 
 ### Herramientas y Desarrollo
-* [cite_start]**Asistencia de IA:** Se utilizó **Google Gemini** como herramienta de apoyo para la comprensión profunda de conceptos teóricos (como la Mónada State), la depuración de errores de tipo en Haskell y la optimización de algoritmos de combate, cumpliendo con el uso responsable de IA sugerido en la pauta.
+* **Asistencia de IA:** Se utilizó **Google Gemini** como herramienta de apoyo para la comprensión profunda de conceptos teóricos (como la Mónada State), la depuración de errores de tipo en Haskell y la optimización de algoritmos de combate, cumpliendo con el uso responsable de IA sugerido en la pauta.
 * **Lenguaje:** [Haskell](https://www.haskell.org/) (GHC 8.8.4).
 
 ### Recursos Gráficos (Arte)
@@ -231,6 +231,8 @@ Este proyecto fue desarrollado integrando conocimientos de la asignatura con her
 * **Motor Gráfico:** Renderizado realizado mediante la librería [SDL2](https://www.libsdl.org/) y sus bindings para Haskell (`sdl2`, `sdl2-image`, `sdl2-ttf`).
 
 ### Recursos de Audio
-* **Música:** El tema de la pantalla de título ("Title Screen") fue compuesto por Irrational Machines, parte del "RPG Title Screen Music Pack" obtenido en OpenGameArt.org (Licencia CC-BY 4.0).
+* **Música:** 
+
+* **Efectos de Sonido (SFX):** La colección de efectos sonoros (pasos, ataques, daño e interacciones) proviene del paquete "Minifantasy - Dungeon SFX Pack" creado por Leohpaz, disponible en Itch.io.
 
 * **Motor de Audio:** Reproducción gestionada mediante la librería SDL2-Mixer.
