@@ -225,89 +225,102 @@ renderHUD r (Just font) pj = do
     drawLine (controlsY + 2 * lineHeight) "[W] Ataque en Area" colorControls
     drawLine (controlsY + 3 * lineHeight) "Daño por espalda x1.5" colorControls
 
-
 renderEntity :: SDL.Renderer -> M.Map String SDL.Texture -> Entity -> V2 CInt -> Game ()
 renderEntity r texs ent cameraOffset = do
     let entClass' = entClass ent
     let tileScreenPos = entPos ent ^-^ cameraOffset
 
-    let currentRenderSize = case entClass' of
-            Rata -> 48   -- ¡LA RATA AHORA ES PEQUEÑA!
-            Vaca -> 128  -- La Vaca Boss se ve gigante
-            _    -> entityRenderSize -- El resto usa el estándar (96)
-
-    -- 1. CALCULAR POSICIÓN
-    let offsetX = (screenSize - currentRenderSize)
+    -- =========================================================
+    -- 1. CONFIGURACIÓN DE TAMAÑO Y AJUSTE FINO (NUDGE)
+    -- =========================================================
+    -- Definimos (Tamaño, Ajuste X, Ajuste Y) para cada clase.
+    -- Ajuste X > 0: Mueve a la derecha.
+    -- Ajuste Y > 0: Mueve hacia abajo.
     
-    
-    let offsetY = screenSize - currentRenderSize
-    let heroDrawPos = tileScreenPos + V2 offsetX offsetY
-    let destRect = SDL.Rectangle (P heroDrawPos) (V2 currentRenderSize currentRenderSize)
+    let (renderSize, nudgeX, nudgeY) = case entClass' of
+            -- RATA: Pequeña (48px), centrada
+            Rata    -> (48,  8, 0)  
+            
+            -- VACA: Gigante (128px), centrada
+            Vaca    -> (128, 0, 0)  
+            
+            -- HEROE: Estándar (96px). 
+            -- Si se ve muy a la izquierda, SUBE el valor de nudgeX (ej. 10, 16)
+            Hero    -> (96,  16, 0) 
+            
+            -- Otros (Usan valores por defecto)
+            _       -> (96,  0, 0)
 
-    -- 2. SELECCIONAR LA TEXTURA CORRECTA
-    -- Aquí asignamos cada clase a su archivo cargado en Assets.hs
+    -- =========================================================
+    -- 2. CALCULAR POSICIÓN
+    -- =========================================================
+    
+    -- Centrado Automático Matemático
+    let autoOffsetX = (screenSize - renderSize) `div` 2
+    let autoOffsetY = screenSize - renderSize
+
+    -- Posición Final = Base + Automático + TU AJUSTE MANUAL
+    let finalX = autoOffsetX + nudgeX
+    let finalY = autoOffsetY + nudgeY
+
+    let heroDrawPos = tileScreenPos + V2 finalX finalY
+    let destRect = SDL.Rectangle (P heroDrawPos) (V2 renderSize renderSize)
+
+    -- =========================================================
+    -- 3. SELECCIONAR TEXTURA Y RECORTE
+    -- =========================================================
     let (texKey, _) = case entClass' of
             Hero    -> ("hero", entAnimFrame ent)
-            Paladin -> ("paladin", entAnimFrame ent) -- ¡Usa paladin.png!
-            Bruja   -> ("bruja", entAnimFrame ent)   -- ¡Usa bruja.png!
-            Chamana -> ("chamana", entAnimFrame ent) -- ¡Usa chamana.png!
-            
-            -- Enemigos
+            Paladin -> ("paladin", entAnimFrame ent)
+            Bruja   -> ("bruja", entAnimFrame ent)
+            Chamana -> ("chamana", entAnimFrame ent)
             Orco    -> ("ogre", entAnimFrame ent)
             Zombie  -> ("zombie", entAnimFrame ent)
             Vaca    -> ("cow", entAnimFrame ent)
-            Rata -> ("rat", entAnimFrame ent)
+            Rata    -> ("rat", entAnimFrame ent)
             _       -> ("hero", entAnimFrame ent)
 
-    -- 3. DIBUJAR (Sin tintes raros, color natural)
     case M.lookup texKey texs of
         Nothing -> return ()
         Just tex -> do
             
-            -- DEFINIR TAMAÑO DE RECORTE (SOURCE)
             let cellSize = case texKey of 
                     "cow" -> 48 
-                    "rat" -> 16 -- <--- RATA: SHEET 64x64 => FRAME 16x16
+                    "rat" -> 16 
                     _     -> 32 
 
             let row = case entDir ent of Abajo -> 0; Izquierda -> 1; Arriba -> 2; Derecha -> 3
             let col = fromIntegral (entAnimFrame ent)
-            
-            -- Recorte (Source)
             let srcRect = SDL.Rectangle (P (V2 (col * cellSize) (row * cellSize))) (V2 cellSize cellSize)
             
             SDL.textureBlendMode tex SDL.$= SDL.BlendAlphaBlend
-
-            -- Manejo de transparencia (Invisibilidad)
             let alphaValue = if entInvisible ent then 128 else 255
-
             SDL.textureAlphaMod tex SDL.$= (fromIntegral alphaValue)
 
             SDL.copy r tex (Just srcRect) (Just destRect)
-   
-            -- Restaurar Alpha por si acaso
             SDL.textureAlphaMod tex SDL.$= 255
 
-    -- 4. DIBUJAR ESCUDO (Solo clases jugables)
+    -- =========================================================
+    -- 4. ESCUDO (Ajustado a la nueva posición)
+    -- =========================================================
     when (isPlayerClass entClass' && not (entDead ent)) $ do
         case M.lookup "shield" texs of
             Nothing -> return ()
             Just texShield -> do
                 let shieldW = 100; shieldH = 80
                 let shieldSize = V2 shieldW shieldH
-                
-                let angle :: CDouble
-                    angle = case entDir ent of
-                        Arriba    -> 0
-                        Derecha   -> 90
-                        Abajo     -> 180
-                        Izquierda -> 270
+                let angle = case entDir ent of Arriba -> 0; Derecha -> 90; Abajo -> 180; Izquierda -> 270
 
-                let centerOffsetX = (entityRenderSize - shieldW) `div` 2
-                let centerOffsetY = (entityRenderSize - shieldH) `div` 2
-                let verticalShift = case entDir ent of Arriba -> 16; Abajo -> 24; _ -> 20
+                -- Usamos heroDrawPos (que ya tiene tu ajuste manual) para que el escudo siga al cuerpo
+                -- Centramos el escudo (100x80) sobre el render del personaje (renderSize)
                 
-                let finalShieldPos = heroDrawPos + V2 centerOffsetX (centerOffsetY + verticalShift)
+                let shieldCenterX = (renderSize - shieldW) `div` 2
+                let shieldCenterY = (renderSize - shieldH) `div` 2
+                let verticalShift = case entDir ent of
+                        Abajo  -> 24
+                        Arriba -> 16
+                        _      -> 16
+                let finalShieldPos = heroDrawPos + V2 shieldCenterX (shieldCenterY + verticalShift)
                 let destRectShield = SDL.Rectangle (P finalShieldPos) shieldSize
 
                 let alphaVal = if entInvisible ent then 60 else 160
@@ -315,38 +328,81 @@ renderEntity r texs ent cameraOffset = do
                 SDL.copyEx r texShield Nothing (Just destRectShield) angle Nothing (SDL.V2 False False)
                 SDL.textureAlphaMod texShield SDL.$= 255
 
+    -- =========================================================
     -- 5. BARRA DE VIDA
+    -- =========================================================
     when (entHp ent < entMaxHp ent || entAggro ent) $ do
-        let barPos = tileScreenPos + V2 0 (-10)
-        drawHealthBar r barPos (entHp ent) (entMaxHp ent)
+        -- La barra flota un poco más arriba de la cabeza
+        let barPos = heroDrawPos + V2 0 (-10)
+        
+        -- Si es rata, barra pequeña (32), si no, normal (64)
+        let barWidth = if entClass' == Rata then 32 else 64
+        
+        -- Centrar la barra respecto al sprite
+        let barOffsetX = (renderSize - barWidth) `div` 2
+        
+        drawHealthBarCustom r (barPos + V2 barOffsetX 0) barWidth (entHp ent) (entMaxHp ent)
 
-    -- 6. DEBUG DE ATAQUE (CAJAS ROJAS)
     let atkType = entAttackType ent
+    
     when (atkType /= NoAttack) $ do
-        oldBlend <- SDL.get (SDL.rendererDrawBlendMode r)
-        SDL.rendererDrawBlendMode r SDL.$= SDL.BlendAlphaBlend
-        SDL.rendererDrawColor r SDL.$= V4 255 0 0 150
+        case M.lookup "fx_blade" texs of 
+            Nothing -> return () -- Si no carga la imagen, no hace nada
+            Just texBlade -> do
+                
+                -- 1. FRAME DE ANIMACIÓN
+                -- Usamos el frame del personaje para sincronizar (0, 1, 2)
+                let frame = fromIntegral (entAnimFrame ent) `mod` 3
+                let frameW = 88 -- Ancho de cada cuadro en la hoja (264 / 3)
+                
+                -- 2. SELECCIONAR FILA (Y) SEGÚN TIPO DE ATAQUE
+                -- Ajusta estos valores 'srcY' si ves que recorta mal la hoja
+                let (srcY, frameH, isSpin) = case atkType of
+                        AtkNormal -> (0, 64, False)   -- Fila 0: Estocada / Corte
+                        AtkArea   -> (360, 88, True)  -- Fila media: Giro circular
+                        _         -> (0, 0, False)
 
-        case atkType of
-            AtkNormal -> do
-                let offset = case entDir ent of
-                        Arriba -> V2 0 (-screenSize); Abajo -> V2 0 screenSize
-                        Izquierda -> V2 (-screenSize) 0; Derecha -> V2 screenSize 0
-                let attackPos = tileScreenPos + offset
-                let rect = SDL.Rectangle (P attackPos) (V2 screenSize screenSize)
-                SDL.fillRect r (Just rect)
+                let srcRect = SDL.Rectangle (P (V2 (frame * frameW) srcY)) (V2 frameW frameH)
 
-            AtkArea -> do
-                let areaSize = 200 
-                let offset = (screenSize - areaSize) `div` 2
-                let attackPos = tileScreenPos + V2 offset offset
-                let rect = SDL.Rectangle (P attackPos) (V2 areaSize areaSize)
-                SDL.fillRect r (Just rect)
-            _ -> return ()
+                -- 3. CALCULAR POSICIÓN Y ROTACIÓN
+                let (destRect, rotAngle) = if isSpin
+                    then 
+                        -- CASO W: GIRO (Centrado en el personaje)
+                        let size = 180 -- Tamaño grande para el área
+                            -- Centramos respecto al dibujo del héroe
+                            offset = (entityRenderSize - size) `div` 2
+                            pos = heroDrawPos + V2 offset offset
+                        in (SDL.Rectangle (P pos) (V2 size size), 0)
+                    else 
+                        -- CASO Q: GOLPE (Frente al personaje)
+                        let sizeW = 96
+                            sizeH = 70
+                            
+                            -- Calculamos el centro del cuerpo
+                            centerX = (entityRenderSize - sizeW) `div` 2
+                            centerY = (entityRenderSize - sizeH) `div` 2
+                            centerPos = heroDrawPos + V2 centerX centerY
 
-        SDL.rendererDrawBlendMode r SDL.$= oldBlend
-        SDL.rendererDrawColor r SDL.$= V4 0 0 0 255
+                            -- Empujamos el efecto hacia donde mira
+                            offsetDir = case entDir ent of
+                                     Arriba    -> V2 0 (-40)
+                                     Abajo     -> V2 0 40
+                                     Derecha   -> V2 40 0
+                                     Izquierda -> V2 (-40) 0
+                            
+                            finalPos = centerPos + offsetDir
+                            
+                            -- Rotamos el sprite para que apunte bien
+                            ang = case entDir ent of
+                                    Arriba -> 0; Derecha -> 90; Abajo -> 180; Izquierda -> 270
+                        in (SDL.Rectangle (P finalPos) (V2 sizeW sizeH), ang)
 
+                -- 4. DIBUJAR CON BRILLO (Additive blending)
+                SDL.textureBlendMode texBlade SDL.$= SDL.BlendAdditive 
+                SDL.copyEx r texBlade (Just srcRect) (Just destRect) rotAngle Nothing (SDL.V2 False False)
+                SDL.textureBlendMode texBlade SDL.$= SDL.BlendAlphaBlend
+
+        
 drawHealthBarCustom :: SDL.Renderer -> V2 CInt -> CInt -> Int -> Int -> Game ()
 drawHealthBarCustom r (V2 x y) width hp maxHp = do
     let height = 6

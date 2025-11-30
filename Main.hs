@@ -63,6 +63,8 @@ main = do
     -- CONFIGURACIÓN DE AUDIO (Del equipo, es mejor)
     let audioConfig = Mixer.Audio 48000 Mixer.FormatS16_Sys Mixer.Stereo
     Mixer.openAudio audioConfig 4096
+    
+    _ <- Mixer.setChannels 32
 
     window <- SDL.createWindow "Haski RPG" SDL.defaultWindow {
         SDL.windowInitialSize = V2 windowW windowH
