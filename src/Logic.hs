@@ -635,7 +635,7 @@ handlePlayingEvents events ticks = do
 
                 -- B. LÓGICA DE PUERTA (ID 50)
                 -- Asegúrate de haber definido tilePuerta = 50 en Maps.hs, o usa 50 directamente aquí
-                if tileID == 50
+                if tileID == 42
                 then do
                     if entHasKey pj
                     then do
