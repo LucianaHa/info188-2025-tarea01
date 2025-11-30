@@ -669,6 +669,8 @@ handleEvents events ticks = do
         Playing     -> handlePlayingEvents events ticks
         GameOver    -> return ()
         GameWon     -> return ()
+            let quit = any isQuitEvent events
+            when quit $ modify $ \s -> s { shouldExit = True }
 
 -- ==========================================
 -- 6. UPDATE LOOP
