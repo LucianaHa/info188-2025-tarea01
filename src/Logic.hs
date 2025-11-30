@@ -403,6 +403,14 @@ actualizarEnemigos ticks = do
                     if ticks > entCooldown eConEstado
                     then do
                         registrarEncuentro (entClass eConEstado)
+
+                        when (entClass eConEstado == Vaca) $ do
+                             stSfx <- get
+                             let res = resources stSfx
+                             liftIO $ case rSfxCow res of
+                                Just sfx -> Mixer.play sfx
+                                Nothing -> return ()
+
                         stCurr <- get
                         let pjCurr = player stCurr
                         let dano = randomRango (entMinAtk eConEstado) (entMaxAtk eConEstado) ticks
