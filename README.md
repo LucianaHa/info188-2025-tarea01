@@ -231,7 +231,7 @@ Este proyecto fue desarrollado integrando conocimientos de la asignatura con her
 * **Motor Gráfico:** Renderizado realizado mediante la librería [SDL2](https://www.libsdl.org/) y sus bindings para Haskell (`sdl2`, `sdl2-image`, `sdl2-ttf`).
 
 ### Recursos de Audio
-* **Música:** 
+* **Música:** El tema de la pantalla de título ("Title Screen") fue compuesto por Irrational Machines, parte del "RPG Title Screen Music Pack" obtenido en OpenGameArt.org (Licencia CC-BY 4.0).
 
 * **Efectos de Sonido (SFX):** La colección de efectos sonoros (pasos, ataques, daño e interacciones) proviene del paquete "Minifantasy - Dungeon SFX Pack" creado por Leohpaz, disponible en Itch.io.
 
