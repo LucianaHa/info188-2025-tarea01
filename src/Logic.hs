@@ -590,20 +590,17 @@ handlePlayingEvents events ticks = do
     st <- get
     let pj = player st
 
-    -- 1. Detectar salida (ESC) y ataques (Q/W) por evento (Pulsación única)
     let quit = any isQuitEvent events
     when quit $ modify $ \s -> s { shouldExit = True }
 
     let keyQ = isKey SDL.KeycodeQ events
     let keyW = isKey SDL.KeycodeW events
 
-    -- Solo atacar si no está en cooldown
     when (ticks > entCooldown pj && entAttackType pj == NoAttack) $ do
         if keyQ then realizarAtaque AtkNormal ticks
         else if keyW then realizarAtaque AtkArea ticks
         else return ()
 
-    -- 2. Detectar movimiento por estado (Continuo y fluido)
     keys <- liftIO SDL.getKeyboardState
 
     let inputDir = if keys SDL.ScancodeUp    then V2 0 (-1)
@@ -612,29 +609,22 @@ handlePlayingEvents events ticks = do
               else if keys SDL.ScancodeRight then V2 1 0
               else V2 0 0
 
-    -- 3. Ejecutar movimiento
     unless (entDead pj || entAttackType pj /= NoAttack) $ do
 
-        -- Si ya se está moviendo, se ignora.
         unless (entIsMoving pj) $ do
 
-            -- Si hay una tecla presionada (vector no es 0,0).
             when (inputDir /= V2 0 0) $ do
                 let nuevaDir = determineDir inputDir
                 let nextTile = entPos pj + (screenSize *^ inputDir)
 
-                -- A. IDENTIFICAR QUÉ TILE ES (Calculamos índices de matriz)
                 let (V2 nx ny) = nextTile
                 let (tx, ty) = (floor (fromIntegral nx / fromIntegral screenSize), floor (fromIntegral ny / fromIntegral screenSize))
                 let mapa = currentMap st
 
-                -- Protección para no salirnos del mapa
                 let tileID = if ty >= 0 && ty < length mapa && tx >= 0 && tx < length (head mapa)
                                 then mapa !! ty !! tx
                                 else tilePared -- Si sale del mapa, es pared
 
-                -- B. LÓGICA DE PUERTA (ID 50)
-                -- Asegúrate de haber definido tilePuerta = 50 en Maps.hs, o usa 50 directamente aquí
                 if tileID == 50
                 then do
                     if entHasKey pj
@@ -643,7 +633,6 @@ handlePlayingEvents events ticks = do
                             agregarLog "¡Has escapado de la mazmorra!"
                     else agregarLog "La puerta está cerrada. Necesitas la llave del jefe."
 
-                -- C. MOVIMIENTO NORMAL (Si no es puerta)
                 else do
                     -- Chequeamos si es Muro O si está bloqueada por enemigos
                     let esMuroOAgua = tileID == tilePared || tileID == -1 -- -1 es agua/vacío
