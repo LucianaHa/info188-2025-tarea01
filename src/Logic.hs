@@ -9,10 +9,12 @@ import Control.Monad.State
 import Control.Monad (when, unless, forM, forM_)
 import Data.Word (Word32)
 import Foreign.C.Types (CInt)
-import Data.List (find)
+import Data.List (find, splitAt)
 import Linear.Affine (Point(..))
 import qualified SDL.Mixer as Mixer 
 import qualified Data.Map as M
+import System.Random (randomRIO)
+
 
 import Types
 import Config
@@ -28,6 +30,25 @@ buffDuration = 10000
 -- ==========================================
 -- 1. UTILIDADES Y BUFFS
 -- ==========================================
+
+getRandomUniqueElements :: Int -> [a] -> IO [a]
+getRandomUniqueElements n list = do
+    let len = length list
+    if n <= 0 || len == 0 || n > len
+        then return []
+        else do
+            randomIndex <- randomRIO (0, len - 1)
+            let selectedElement = list !! randomIndex
+            let (before, after) = splitAt randomIndex list
+            let remainingList = before ++ (tail after)
+            rest <- getRandomUniqueElements (n - 1) remainingList
+            return (selectedElement : rest)
+
+createRandomItems :: [ItemType] -> [V2 CInt] -> IO [Item]
+createRandomItems itemTypes floorPositions = do
+    let totalItems = length itemTypes
+    randomPositions <- getRandomUniqueElements totalItems floorPositions
+    return $ zipWith (\tipo pos -> Item { itemType = tipo, itemPos = pos, itemObtained = False }) itemTypes randomPositions
 
 checkBuffs :: Word32 -> Game ()
 checkBuffs ticks = do
@@ -148,12 +169,16 @@ checkStairs = do
         let nuevoNivel = 2
         let nuevosEnemigos = generarEnemigos nuevoNivel
         let nuevoMapa = mapaNivel2
-        let startPos = V2 (30 * screenSize) (4 * screenSize)
-        
+        let startPos = V2 (30 * screenSize) (4 * screenSize) -- Posición corregida
+        let floorPosNivel2 = getFloorPositions nuevoMapa
+        let itemsNivel2 = [PotionFuerza, PotionVelocidad] -- O las que prefieras
+        nuevosItems <- liftIO $ createRandomItems itemsNivel2 floorPosNivel2
+
         modify $ \s -> s {
             currentLevel = nuevoNivel,
             currentMap = nuevoMapa,
             enemies = nuevosEnemigos,
+            mapItems = nuevosItems, 
             player = pj { entPos = startPos, entTarget = startPos, entIsMoving = False },
             gameLog = "¡Has descendido al Nivel 2!" : gameLog s
         }
