@@ -358,7 +358,7 @@ renderEntity r texs ent cameraOffset = do
                 -- 2. SELECCIONAR FILA (Y) SEGÚN TIPO DE ATAQUE
                 -- Ajusta estos valores 'srcY' si ves que recorta mal la hoja
                 let (srcY, frameH, isSpin) = case atkType of
-                        AtkNormal -> (0, 64, False)   -- Fila 0: Estocada / Corte
+                        AtkNormal -> (240, 30, False)   -- Fila 0: Estocada / Corte
                         AtkArea   -> (360, 88, True)  -- Fila media: Giro circular
                         _         -> (0, 0, False)
 
@@ -385,16 +385,16 @@ renderEntity r texs ent cameraOffset = do
 
                             -- Empujamos el efecto hacia donde mira
                             offsetDir = case entDir ent of
-                                     Arriba    -> V2 0 (-40)
-                                     Abajo     -> V2 0 40
-                                     Derecha   -> V2 40 0
-                                     Izquierda -> V2 (-40) 0
+                                     Arriba    -> V2 0 (-60)
+                                     Abajo     -> V2 0 60
+                                     Derecha   -> V2 55 20
+                                     Izquierda -> V2 (-55) 0
                             
                             finalPos = centerPos + offsetDir
                             
                             -- Rotamos el sprite para que apunte bien
                             ang = case entDir ent of
-                                    Arriba -> 0; Derecha -> 90; Abajo -> 180; Izquierda -> 270
+                                    Arriba -> 270; Derecha -> 0; Abajo -> 90; Izquierda -> 180
                         in (SDL.Rectangle (P finalPos) (V2 sizeW sizeH), ang)
 
                 -- 4. DIBUJAR CON BRILLO (Additive blending)
