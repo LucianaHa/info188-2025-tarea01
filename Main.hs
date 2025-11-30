@@ -35,25 +35,6 @@ gameLoop = do
         liftIO $ SDL.delay 16
         gameLoop
 
-getRandomUniqueElements :: Int -> [a] -> IO [a]
-getRandomUniqueElements n list = do
-    let len = length list
-    if n <= 0 || len == 0 || n > len
-        then return []
-        else do
-            randomIndex <- randomRIO (0, len - 1)
-            let selectedElement = list !! randomIndex
-            let (before, after) = splitAt randomIndex list
-            let remainingList = before ++ (tail after)
-            rest <- getRandomUniqueElements (n - 1) remainingList
-            return (selectedElement : rest)
-
-createRandomItems :: [ItemType] -> [V2 CInt] -> IO [Item]
-createRandomItems itemTypes floorPositions = do
-    let totalItems = length itemTypes
-    randomPositions <- getRandomUniqueElements totalItems floorPositions
-    return $ zipWith (\tipo pos -> Item { itemType = tipo, itemPos = pos, itemObtained = False }) itemTypes randomPositions
-
 main :: IO ()
 main = do
     SDL.initializeAll
