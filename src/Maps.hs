@@ -25,7 +25,7 @@ tileSuelo :: Int
 tileSuelo = 14
 
 tileEscalera :: Int
-tileEscalera = 5
+tileEscalera = 13
 
 tilePared :: Int
 tilePared = 7
@@ -34,7 +34,7 @@ tileAgua :: Int
 tileAgua  = -1
 
 tilePuerta :: Int
-tilePuerta = 50
+tilePuerta = 42
 
 -- ==========================================
 -- 2. HERRAMIENTAS

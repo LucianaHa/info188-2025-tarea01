@@ -668,6 +668,7 @@ handleEvents events ticks = do
         TitleScreen -> handleTitleEvents events ticks
         Playing     -> handlePlayingEvents events ticks
         GameOver    -> return ()
+        GameWon     -> return ()
 
 -- ==========================================
 -- 6. UPDATE LOOP
