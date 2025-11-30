@@ -34,7 +34,7 @@ tileAgua :: Int
 tileAgua  = -1
 
 tilePuerta :: Int
-tilePuerta = 50
+tilePuerta = 42
 
 -- ==========================================
 -- 2. HERRAMIENTAS

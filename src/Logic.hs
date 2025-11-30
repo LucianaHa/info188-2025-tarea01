@@ -625,7 +625,7 @@ handlePlayingEvents events ticks = do
                                 then mapa !! ty !! tx
                                 else tilePared -- Si sale del mapa, es pared
 
-                if tileID == 50
+                if tileID == 42
                 then do
                     if entHasKey pj
                     then do
