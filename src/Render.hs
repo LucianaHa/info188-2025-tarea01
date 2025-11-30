@@ -48,7 +48,7 @@ isPlayerClass Bruja   = True
 isPlayerClass Chamana = True
 isPlayerClass _       = False
 
--- NUEVA FUNCIÓN DE RECORTE: Usa 8 columnas en lugar de tilesetCols (6)
+-- FUNCIÓN DE RECORTE:
 getItemTileRect :: Int -> Maybe (SDL.Rectangle CInt)
 getItemTileRect id
     | id < 0 = Nothing
