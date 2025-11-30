@@ -231,11 +231,18 @@ renderEntity r texs ent cameraOffset = do
     let entClass' = entClass ent
     let tileScreenPos = entPos ent ^-^ cameraOffset
 
+    let currentRenderSize = case entClass' of
+            Rata -> 48   -- ¡LA RATA AHORA ES PEQUEÑA!
+            Vaca -> 128  -- La Vaca Boss se ve gigante
+            _    -> entityRenderSize -- El resto usa el estándar (96)
+
     -- 1. CALCULAR POSICIÓN
-    let offsetX = (screenSize - entityRenderSize) `div` 2
-    let offsetY = screenSize - entityRenderSize -- Pies en la base
+    let offsetX = (screenSize - currentRenderSize)
+    
+    
+    let offsetY = screenSize - currentRenderSize
     let heroDrawPos = tileScreenPos + V2 offsetX offsetY
-    let destRect = SDL.Rectangle (P heroDrawPos) (V2 entityRenderSize entityRenderSize)
+    let destRect = SDL.Rectangle (P heroDrawPos) (V2 currentRenderSize currentRenderSize)
 
     -- 2. SELECCIONAR LA TEXTURA CORRECTA
     -- Aquí asignamos cada clase a su archivo cargado en Assets.hs
@@ -339,6 +346,19 @@ renderEntity r texs ent cameraOffset = do
 
         SDL.rendererDrawBlendMode r SDL.$= oldBlend
         SDL.rendererDrawColor r SDL.$= V4 0 0 0 255
+
+drawHealthBarCustom :: SDL.Renderer -> V2 CInt -> CInt -> Int -> Int -> Game ()
+drawHealthBarCustom r (V2 x y) width hp maxHp = do
+    let height = 6
+    let barBg = SDL.Rectangle (P (V2 x y)) (V2 width height)
+    let pct = fromIntegral hp / fromIntegral maxHp :: Float
+    let greenW = floor (fromIntegral width * pct) :: CInt
+    let barFg = SDL.Rectangle (P (V2 x y)) (V2 greenW height)
+
+    SDL.rendererDrawColor r SDL.$= V4 255 0 0 255
+    SDL.fillRect r (Just barBg)
+    SDL.rendererDrawColor r SDL.$= V4 0 255 0 255
+    SDL.fillRect r (Just barFg)
 
 drawTitleScreen :: SDL.Renderer -> Maybe SDL.Font.Font -> M.Map String SDL.Texture -> Entity -> Game ()
 drawTitleScreen r Nothing texs _ = return () -- Si falla la fuente

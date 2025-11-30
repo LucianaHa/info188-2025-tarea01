@@ -1,5 +1,7 @@
 module Logic where
 
+
+import qualified SDL.Input.Keyboard as Keyboard 
 import qualified SDL
 import Linear (V2(..), (^-^), (^+^), (*^))
 import Linear.Metric (norm, distance, dot)
@@ -519,49 +521,77 @@ handleTitleEvents events ticks = do
     isKey code evs = any (\e -> case e of 
         SDL.KeyboardEvent k -> SDL.keyboardEventKeyMotion k == SDL.Pressed && SDL.keysymKeycode (SDL.keyboardEventKeysym k) == code
         _ -> False) evs
-
 handlePlayingEvents :: [SDL.EventPayload] -> Word32 -> Game ()
 handlePlayingEvents events ticks = do
     st <- get
     let pj = player st
+    
+    -- 1. DETECTAR SALIDA (ESC) Y ATAQUES (Q/W) POR EVENTO (Pulsación única)
     let quit = any isQuitEvent events
     when quit $ modify $ \s -> s { shouldExit = True }
 
     let keyQ = isKey SDL.KeycodeQ events
     let keyW = isKey SDL.KeycodeW events
     
+    -- Solo atacar si no está en cooldown
     when (ticks > entCooldown pj && entAttackType pj == NoAttack) $ do
         if keyQ then realizarAtaque AtkNormal ticks
         else if keyW then realizarAtaque AtkArea ticks
         else return ()
 
-    unless (entIsMoving pj || entDead pj || entAttackType pj /= NoAttack) $ do
-        let (inputDir, hasInput) = foldl checkInput (V2 0 0, False) events
-        when hasInput $ do
-            let nuevaDir = determineDir inputDir
-            if nuevaDir /= entDir pj
-                then modify $ \s -> s { player = pj { entDir = nuevaDir } }
-                else do
-                    let nextTile = entPos pj + (screenSize *^ inputDir)
-                    unless (esMuro nextTile (currentMap st) || chocaConEntidad nextTile (enemies st)) $ do
-                        modify $ \s -> s { player = pj { entTarget = nextTile, entIsMoving = True } }
+    -- 2. DETECTAR MOVIMIENTO POR ESTADO (Continuo y fluido)
+    -- Le preguntamos al hardware si las teclas están apretadas AHORA MISMO
+    keys <- liftIO SDL.getKeyboardState
+    
+    -- Mapeamos teclas a dirección (Usamos Scancodes que son físicos y más rápidos)
+    let inputDir = if keys SDL.ScancodeUp    then V2 0 (-1)
+              else if keys SDL.ScancodeDown  then V2 0 1
+              else if keys SDL.ScancodeLeft  then V2 (-1) 0
+              else if keys SDL.ScancodeRight then V2 1 0
+              else V2 0 0
+
+    -- 3. EJECUTAR MOVIMIENTO
+    -- Si hay input Y (no nos estamos moviendo O acabamos de terminar de movernos)
+    unless (entDead pj || entAttackType pj /= NoAttack) $ do
+        
+        -- Si ya se está moviendo, ignoramos (o podríamos implementar un buffer, pero esto basta)
+        unless (entIsMoving pj) $ do
+            
+            -- Si hay una tecla presionada (vector no es 0,0)
+            when (inputDir /= V2 0 0) $ do
+                let nuevaDir = determineDir inputDir
+                
+                -- Calculamos la siguiente casilla directamente
+                let nextTile = entPos pj + (screenSize *^ inputDir)
+                
+                -- Chequeamos colisiones
+                let hayColision = esMuro nextTile (currentMap st) || chocaConEntidad nextTile (enemies st)
+
+                if hayColision
+                    then 
+                        -- Solo giramos
+                        modify $ \s -> s { player = pj { entDir = nuevaDir } }
+                    else 
+                        -- Giramos Y Caminamos (Movimiento Instantáneo)
+                        modify $ \s -> s { player = pj { 
+                            entDir = nuevaDir, 
+                            entTarget = nextTile, 
+                            entIsMoving = True 
+                        } }
 
   where
+    -- Helper para teclas de un solo uso (Ataques)
     isKey code evs = any (\e -> case e of 
         SDL.KeyboardEvent k -> SDL.keyboardEventKeyMotion k == SDL.Pressed && SDL.keysymKeycode (SDL.keyboardEventKeysym k) == code
         _ -> False) evs
         
-    checkInput (vec, found) (SDL.KeyboardEvent k)
-        | SDL.keyboardEventKeyMotion k == SDL.Pressed =
-            case SDL.keysymKeycode (SDL.keyboardEventKeysym k) of
-                SDL.KeycodeUp -> (V2 0 (-1), True)
-                SDL.KeycodeDown -> (V2 0 1, True)
-                SDL.KeycodeLeft -> (V2 (-1) 0, True)
-                SDL.KeycodeRight -> (V2 1 0, True)
-                _ -> (vec, found)
-    checkInput acc _ = acc
-    determineDir (V2 0 (-1)) = Arriba; determineDir (V2 0 1) = Abajo; determineDir (V2 (-1) 0) = Izquierda; determineDir _ = Derecha
+    -- Helper de dirección
+    determineDir (V2 0 (-1)) = Arriba
+    determineDir (V2 0 1)    = Abajo
+    determineDir (V2 (-1) 0) = Izquierda
+    determineDir _           = Derecha
 
+    
 handleEvents :: [SDL.EventPayload] -> Word32 -> Game ()
 handleEvents events ticks = do
     mode <- gets gameMode
