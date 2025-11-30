@@ -246,7 +246,7 @@ renderEntity r texs ent cameraOffset = do
             
             -- HEROE: Estándar (96px). 
             -- Si se ve muy a la izquierda, SUBE el valor de nudgeX (ej. 10, 16)
-            Hero    -> (96,  16, 0) 
+            Hero    -> (96,  0, 0) 
             
             -- Otros (Usan valores por defecto)
             _       -> (96,  0, 0)

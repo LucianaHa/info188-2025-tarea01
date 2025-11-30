@@ -103,12 +103,18 @@ createEnemy cls pos = Entity {
     entIsMoving = False, entAnimFrame = 0, entAnimTimer = 0,
     entClass = cls,
     
-    entHp = if cls == Rata then 8 else (if cls == Vaca then 150 else 20),
-    entMaxHp = if cls == Rata then 8 else (if cls == Vaca then 150 else 20),
-    entMinAtk = if cls == Rata then 1 else (if cls == Vaca then 8 else 5), 
-    entMaxAtk = if cls == Rata then 3 else (if cls == Vaca then 12 else 8),
-    entSpeed = if cls == Rata then 14 else 8, 
-    entXp = if cls == Rata then 15 else 100,
+    -- VIDA: Rata(8) < Orco(40) < Vaca(150)
+    entHp = case cls of Rata -> 8; Vaca -> 150; Orco -> 40; _ -> 20,
+    entMaxHp = case cls of Rata -> 8; Vaca -> 150; Orco -> 40; _ -> 20,
+    
+    -- DAÑO
+    entMinAtk = case cls of Rata -> 1; Vaca -> 8; Orco -> 4; _ -> 2,
+    entMaxAtk = case cls of Rata -> 3; Vaca -> 12; Orco -> 7; _ -> 4,
+    
+    -- VELOCIDAD: El Orco es un poco lento
+    entSpeed = case cls of Rata -> 14; Orco -> 6; _ -> 8, 
+    
+    entXp = case cls of Rata -> 15; Vaca -> 500; Orco -> 100; _ -> 30,
     
     entLevel=1, entNextLevel=0, entCooldown=0, entAggro=False, entPatrolTimer=0,
     entBuffAtkEnd=0, entBuffSpdEnd=0, entInvisible=False, entInvEnd=0,
@@ -122,8 +128,10 @@ generarEnemigos :: Int -> [Entity]
 generarEnemigos nivel = case nivel of
     1 -> [ createEnemy Rata (V2 (x * screenSize) (y * screenSize)) 
          | (x, y) <- [(10, 50), (12, 45), (30, 40), (35, 35), (52, 20), (54, 25)] ] ++
-         [ createEnemy Zombie (V2 (10* screenSize) (10* screenSize)) ]
-    2 -> [ createEnemy Vaca (V2 (30 * screenSize) (55 * screenSize)) ]
+         [ createEnemy Zombie (V2 (12* screenSize) (50* screenSize)) ]
+    2 -> [
+            createEnemy Orco (V2 (30 * screenSize) (15 * screenSize)),
+            createEnemy Vaca (V2 (30 * screenSize) (55 * screenSize)) ]
     _ -> []
 
 checkStairs :: Game ()
@@ -204,7 +212,7 @@ realizarAtaque tipo ticks = do
     let dmgRnd = randomRango (entMinAtk pj) (entMaxAtk pj) ticks
     let (dmgBase, esArea) = case tipo of
             AtkNormal -> (dmgRnd, False)
-            AtkArea   -> (damageArea, True)
+            AtkArea   -> (max 1 (floor (fromIntegral dmgRnd * 0.6)), True)
             _         -> (0, False)
 
     let bonus = if entBuffAtkEnd pj > ticks then 5 else 0
@@ -437,9 +445,15 @@ actualizarEnemigos ticks = do
                         let moveDirVec = if abs dx > abs dy then stepX else stepY
                         let newDir = vecToDir moveDirVec
                         let nextPos = curr + (screenSize *^ moveDirVec)
-                        let chocaEnt = chocaConEntidad nextPos (enemies stInicial) || nextPos == entPos pj
 
-                        if not (esMuro nextPos (currentMap stInicial)) && not chocaEnt
+                        -- 1. ¿Choca con otros enemigos? (Usamos la lista original para chequear sus Targets)
+                        let chocaOtros = isTileBlocked nextPos (filter (/= e) listaEnemigos)
+                        -- 2. ¿Choca con el Jugador? (Posición O Target del jugador)
+                        let chocaPlayer = nextPos == entPos pj || (entIsMoving pj && nextPos == entTarget pj)
+
+                        let bloqueado = chocaOtros || chocaPlayer || esMuro nextPos (currentMap stInicial)
+
+                        if not bloqueado
                             then return eConEstado { entTarget = nextPos, entIsMoving = True, entDir = newDir }
                             else return eConEstado
                     else return eConEstado
@@ -451,10 +465,14 @@ actualizarEnemigos ticks = do
                     then do
                         let dirVec = getDirVec (entDir eConEstado)
                         let nextPos = curr + (screenSize *^ dirVec)
-                        let chocaEnt = chocaConEntidad nextPos (enemies stInicial) || nextPos == entPos pj
-                        if not (esMuro nextPos (currentMap stInicial)) && not chocaEnt
+                        let chocaOtros = isTileBlocked nextPos (filter (/= e) listaEnemigos)
+                        let chocaPlayer = nextPos == entPos pj || (entIsMoving pj && nextPos == entTarget pj)
+                        let bloqueado = chocaOtros || chocaPlayer || esMuro nextPos (currentMap stInicial)
+
+                        if not bloqueado
                         then return eConEstado { entTarget = nextPos, entIsMoving = True }
                         else return eConEstado { entPatrolTimer = 0 }
+
                     else do
                         let accion = randomRango 0 10 (ticks + fromIntegral (entHp eConEstado))
                         if accion > 2 
@@ -560,19 +578,16 @@ handlePlayingEvents events ticks = do
             -- Si hay una tecla presionada (vector no es 0,0)
             when (inputDir /= V2 0 0) $ do
                 let nuevaDir = determineDir inputDir
-                
-                -- Calculamos la siguiente casilla directamente
                 let nextTile = entPos pj + (screenSize *^ inputDir)
                 
-                -- Chequeamos colisiones
-                let hayColision = esMuro nextTile (currentMap st) || chocaConEntidad nextTile (enemies st)
+                -- CAMBIO AQUÍ: Usamos isTileBlocked
+                -- Chequeamos si es Muro O si está bloqueada por enemigos (Posición o Target)
+                let hayColision = esMuro nextTile (currentMap st) || isTileBlocked nextTile (enemies st)
 
                 if hayColision
                     then 
-                        -- Solo giramos
                         modify $ \s -> s { player = pj { entDir = nuevaDir } }
                     else 
-                        -- Giramos Y Caminamos (Movimiento Instantáneo)
                         modify $ \s -> s { player = pj { 
                             entDir = nuevaDir, 
                             entTarget = nextTile, 
@@ -591,7 +606,7 @@ handlePlayingEvents events ticks = do
     determineDir (V2 (-1) 0) = Izquierda
     determineDir _           = Derecha
 
-    
+
 handleEvents :: [SDL.EventPayload] -> Word32 -> Game ()
 handleEvents events ticks = do
     mode <- gets gameMode
@@ -603,29 +618,41 @@ handleEvents events ticks = do
 -- ==========================================
 -- 6. UPDATE LOOP
 -- ==========================================
-
 resetGame :: Game ()
 resetGame = do
     st <- get
-    let pj = player st
+    let pjAntiguo = player st
     
-    let pjReset = pj { 
-        entHp = entMaxHp pj, entDead = False, 
-        entPos = entOrigin pj, entTarget = entOrigin pj, entIsMoving = False,
-        entAttackType = NoAttack, entAttackTimer = 0
-    }
+    -- 1. RECREAR AL JUGADOR (STATS ORIGINALES)
+    -- En lugar de solo curarlo, usamos createPlayer para borrar XP y Nivel.
+    -- Mantenemos la clase que eligió el jugador.
+    let startPos = V2 (54 * screenSize) (20 * screenSize) -- Posición inicio Nivel 1
+    let pjNuevo = createPlayer (entClass pjAntiguo) startPos
 
-    let enemiesReset = map (\e -> e { 
-        entHp = entMaxHp e, entDead = False, 
-        entPos = entOrigin e, entAggro = False,
-        entAttackType = NoAttack, entAttackTimer = 0
-    }) (enemies st)
+    -- 2. REINICIAR ENEMIGOS (NIVEL 1)
+    let enemigosNivel1 = generarEnemigos 1
 
+    -- 3. ACTUALIZAR ESTADO COMPLETO
     modify $ \s -> s { 
-        player = pjReset, enemies = enemiesReset, 
-        gameMode = TitleScreen, gameLog = ["¡Nueva Partida!"],
-        gameStartTime = 0, currentLevel = 1, currentMap = mapaNivel1
+        player = pjNuevo, 
+        enemies = enemigosNivel1, 
+        
+        -- Volver a Título
+        gameMode = TitleScreen, 
+        gameLog = ["¡Has muerto! Reiniciando..."],
+        
+        -- Resetear tiempos
+        gameStartTime = 0,
+        gameOverTimer = 0, -- Importante resetear esto
+        
+        -- VOLVER AL NIVEL 1
+        currentLevel = 1,
+        currentMap = mapaNivel1
     }
+
+    -- 4. RESTAURAR MÚSICA (CRUCIAL)
+    playMusicForLevel 1
+
 
 updateGame :: Word32 -> Game ()
 updateGame ticks = do
@@ -675,6 +702,16 @@ esMuro (V2 pixelX pixelY) mapaActual =
 
 chocaConEntidad :: V2 CInt -> [Entity] -> Bool
 chocaConEntidad pos ents = any (\e -> entPos e == pos && not (entDead e)) ents
+
+isTileBlocked :: V2 CInt -> [Entity] -> Bool
+isTileBlocked tile entities = any isBlocking entities
+  where
+    isBlocking e = 
+        not (entDead e) && -- Solo entidades vivas bloquean
+        (
+           entPos e == tile ||                  -- Está parado ahí
+           (entIsMoving e && entTarget e == tile) -- O está CAMINANDO hacia ahí
+        )
 
 updateEntityMovement :: Entity -> Game Entity
 updateEntityMovement e = do

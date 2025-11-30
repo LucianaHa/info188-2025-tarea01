@@ -85,9 +85,9 @@ mapaSuelo =
 mapaNivel1 :: [[Int]]
 mapaNivel1 = 
     let base = mapaSuelo -- Tu laberinto actual
-        mapaConEscalera = replaceRows 45 46 (replaceInRow 40 41 tileEscalera) base
+        mapaConEscalera = replaceRows 10 11 (replaceInRow 10 11 tileEscalera) base
     in mapaConEscalera
-    
+
 mapaNivel2 :: [[Int]]
 mapaNivel2 = 
     let base = replicate mapDim (replicate mapDim tilePared) -- Todo Pared
