@@ -427,15 +427,15 @@ drawTitleScreen r (Just font) texs pj = do
     -- Texto de Selección
     let claseNombre = show (entClass pj)
     let infoTxt = "Clase actual: " ++ claseNombre ++ " (Usa 1-4 para cambiar)"
-    let color = V4 255 255 255 255
+    let color = V4 0 0 0 0
     
     -- Renderizamos texto en la parte superior
-    renderText r font 50 50 infoTxt color
+    renderText r font 50 30 infoTxt color
     
     -- EL ERROR ESTABA AQUÍ (había un O (V2 suelto)
     -- Mostrar stats breves
     let statsTxt = "HP: " ++ show (entMaxHp pj) ++ " | ATK: " ++ show (entMinAtk pj) ++ "-" ++ show (entMaxAtk pj) ++ " | SPD: " ++ show (entSpeed pj)
-    renderText r font 50 80 statsTxt color
+    renderText r font 50 50 statsTxt color
 
 drawGameOverScreen :: SDL.Renderer -> M.Map String SDL.Texture -> Game ()
 drawGameOverScreen r texs = do
