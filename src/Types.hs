@@ -14,14 +14,14 @@ module Types (
 
 import qualified SDL
 import qualified SDL.Font
-import qualified SDL.Mixer as Mixer 
+import qualified SDL.Mixer as Mixer
 import Data.Map (Map)
 import Linear (V2)
 import Foreign.C.Types (CInt)
 import Data.Word (Word32)
 import Control.Monad.State (StateT)
 
-data GameMode = TitleScreen | Playing | GameOver
+data GameMode = TitleScreen | Playing | GameOver | GameWon
     deriving (Show, Eq)
 
 data Direccion = Abajo | Izquierda | Derecha | Arriba
@@ -33,7 +33,7 @@ data Clase = Hero | Paladin | Bruja | Chamana | Orco | Esqueleto | Zombie | Vaca
 data AttackType = NoAttack | AtkNormal | AtkArea
     deriving (Show, Eq)
 
-data ItemType = PotionFuerza | PotionInvisibilidad | PotionVelocidad | PotionVeneno
+data ItemType = PotionFuerza | PotionInvisibilidad | PotionVelocidad | PotionVeneno | Llave
         deriving (Show, Eq)
 
 data Item = Item {
@@ -47,7 +47,7 @@ type AssetManager = Map String SDL.Texture
 data Resources = Resources
     { rTextures   :: AssetManager
     , rFont       :: Maybe SDL.Font.Font
-    
+
     -- ESTRUCTURA FUSIONADA LIMPIA
     , rMusic      :: Map Int Mixer.Music  -- Música por niveles (Tu aporte)
     , rSfxStep    :: Maybe Mixer.Chunk    -- SFX Pasos (Equipo)
@@ -90,14 +90,15 @@ data Entity = Entity {
     entBaseMaxAtk :: Int,
     entBaseSpeed  :: CInt,
 
-    entAttackType  :: AttackType, 
+    entAttackType  :: AttackType,
     entAttackTimer :: Word32,
 
     entDead      :: Bool,
     entDeathTick :: Word32,
     entRegenTick :: Word32,
-    
-    entStepTimer :: Word32
+
+    entStepTimer :: Word32,
+    entHasKey  :: Bool
 } deriving (Show, Eq)
 
 data GameState = GameState {

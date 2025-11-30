@@ -2,15 +2,16 @@ module Maps (
     tileSuelo,
     tilePared,
     tileAgua,
-    tileEscalera, -- Exportar esto
+    tileEscalera,
+    tilePuerta,
     mapaNivel1,   -- Exportar esto
     mapaNivel2,   -- Exportar esto
     getFloorPositions,
     replaceInRow,
     replaceRows,
-    tileEscalera, 
-    mapaNivel1,   
-    mapaNivel2    
+    tileEscalera,
+    mapaNivel1,
+    mapaNivel2
 ) where
 
 import Linear (V2(..))
@@ -31,6 +32,9 @@ tilePared = 7
 
 tileAgua :: Int
 tileAgua  = -1
+
+tilePuerta :: Int
+tilePuerta = 50
 
 -- ==========================================
 -- 2. HERRAMIENTAS
@@ -83,13 +87,13 @@ mapaSuelo =
     in pasilloCD2
 
 mapaNivel1 :: [[Int]]
-mapaNivel1 = 
+mapaNivel1 =
     let base = mapaSuelo -- Tu laberinto actual
         mapaConEscalera = replaceRows 10 11 (replaceInRow 10 11 tileEscalera) base
     in mapaConEscalera
 
 mapaNivel2 :: [[Int]]
-mapaNivel2 = 
+mapaNivel2 =
     let base = replicate mapDim (replicate mapDim tilePared) -- Todo Pared
 
         -- 1. EL PASILLO ANCHO (Ancho 7)
@@ -111,9 +115,11 @@ mapaNivel2 =
 
         -- 5. SALA DEL JEFE (12x12) - Final
         -- Y: 50 a 62 (Hasta el fondo), X: 24 a 36
-        salaJefe = replaceRows 50 62 (replaceInRow 24 36 tileSuelo) sala3
+        salaJefeBase = replaceRows 50 62 (replaceInRow 24 36 tileSuelo) sala3
 
-    in salaJefe
+        salaConPuerta = replaceRows 61 62 (replaceInRow 30 31 tilePuerta) salaJefeBase
+
+    in salaConPuerta
 
 mapaObjetos :: [[Int]]
 mapaObjetos = replicate mapDim (replicate mapDim (-1))
