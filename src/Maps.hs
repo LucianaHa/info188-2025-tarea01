@@ -18,7 +18,7 @@ import Foreign.C.Types (CInt)
 import Config (screenSize)
 
 -- ==========================================
--- 1. PON AQUÍ TUS NUEVOS IDs ENCONTRADOS
+-- 1. IDs
 -- ==========================================
 tileSuelo :: Int
 tileSuelo = 14

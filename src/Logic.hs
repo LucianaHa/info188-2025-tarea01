@@ -605,7 +605,7 @@ handlePlayingEvents events ticks = do
     -- Si hay input Y (no nos estamos moviendo O acabamos de terminar de movernos)
     unless (entDead pj || entAttackType pj /= NoAttack) $ do
         
-        -- Si ya se está moviendo, ignoramos (o podríamos implementar un buffer, pero esto basta)
+        -- Si ya se está moviendo, ignoramos
         unless (entIsMoving pj) $ do
             
             -- Si hay una tecla presionada (vector no es 0,0)
@@ -676,7 +676,7 @@ resetGame = do
         
         -- Resetear tiempos
         gameStartTime = 0,
-        gameOverTimer = 0, -- Importante resetear esto
+        gameOverTimer = 0,
         
         -- VOLVER AL NIVEL 1
         currentLevel = 1,

@@ -61,7 +61,7 @@ cargarRecursos r = do
     -- FUENTE
     miFuente <- loadFontSafe "assets/PressStart2P.ttf" 12
 
-    -- MÚSICA (Tu lógica de niveles)
+    -- MÚSICA
     musicLvl1Maybe <- loadMusicSafe "assets/music.mp3"
     musicLvl2Maybe <- loadMusicSafe "assets/boss.mp3"
 
@@ -70,7 +70,7 @@ cargarRecursos r = do
             (Just m1, Nothing) -> [(1, m1)]
             _ -> []
 
-    -- SFX (De tus compañeros)
+    -- SFX
     sfxPasos <- loadChunkSafe "Music/human_walk_stone.ogg"
     sfxDano <- loadChunkSafe "Music/human_damage.ogg"
     sfxMuerte <- loadChunkSafe "Music/human_death_spin.ogg"
