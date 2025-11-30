@@ -29,7 +29,7 @@ aggroRange = 320
 zombieAggroRange :: CInt
 zombieAggroRange = 480
 
--- NUEVO: Vaca Miope (Visión corta, ~3 bloques)
+-- Vaca Miope (Visión corta, ~3 bloques)
 cowAggroRange :: CInt
 cowAggroRange = 200
 

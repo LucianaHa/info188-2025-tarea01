@@ -47,7 +47,7 @@ isPlayerClass Bruja   = True
 isPlayerClass Chamana = True
 isPlayerClass _       = False
 
--- NUEVA FUNCIÓN DE RECORTE: Usa 8 columnas en lugar de tilesetCols (6)
+-- FUNCIÓN DE RECORTE:
 getItemTileRect :: Int -> Maybe (SDL.Rectangle CInt)
 getItemTileRect id
     | id < 0 = Nothing
@@ -432,7 +432,6 @@ drawTitleScreen r (Just font) texs pj = do
     -- Renderizamos texto en la parte superior
     renderText r font 50 30 infoTxt color
     
-    -- EL ERROR ESTABA AQUÍ (había un O (V2 suelto)
     -- Mostrar stats breves
     let statsTxt = "HP: " ++ show (entMaxHp pj) ++ " | ATK: " ++ show (entMinAtk pj) ++ "-" ++ show (entMaxAtk pj) ++ " | SPD: " ++ show (entSpeed pj)
     renderText r font 50 50 statsTxt color
