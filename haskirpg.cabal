@@ -7,7 +7,6 @@ executable haskirpg
 
     hs-source-dirs:   ., src
 
-    -- AQUÍ LISTAMOS TUS NUEVOS ARCHIVOS
     other-modules:    Config
                     , Types
                     , Maps

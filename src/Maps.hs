@@ -4,8 +4,8 @@ module Maps (
     tileAgua,
     tileEscalera,
     tilePuerta,
-    mapaNivel1,   -- Exportar esto
-    mapaNivel2,   -- Exportar esto
+    mapaNivel1,
+    mapaNivel2,
     getFloorPositions,
     replaceInRow,
     replaceRows,
@@ -125,7 +125,7 @@ mapaObjetos :: [[Int]]
 mapaObjetos = replicate mapDim (replicate mapDim (-1))
 
 -- ==========================================
--- 4. UTILIDADES DEL MAPA (NUEVO)
+-- 4. UTILIDADES DEL MAPA
 -- ==========================================
 
 getFloorPositions :: [[Int]] -> [V2 CInt]
@@ -133,5 +133,5 @@ getFloorPositions matriz =
     [ V2 (fromIntegral x * screenSize) (fromIntegral y * screenSize)
     | (y, row) <- zip [0..] matriz
     , (x, tileID) <- zip [0..] row
-    , tileID == tileSuelo -- tileSuelo es 14 según tus snippets
+    , tileID == tileSuelo
     ]

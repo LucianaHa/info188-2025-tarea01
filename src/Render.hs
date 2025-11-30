@@ -27,7 +27,7 @@ characterIndexFromClass Vaca      = 4
 
 getTileRect :: Int -> Maybe (SDL.Rectangle CInt)
 getTileRect id
-    | id == 50  = Just (SDL.Rectangle (P (V2 (9 * tileSizeSource) 0)) (V2 tileSizeSource tileSizeSource)) -- <--- NUEVO: Puerta
+    | id == 50  = Just (SDL.Rectangle (P (V2 (9 * tileSizeSource) 0)) (V2 tileSizeSource tileSizeSource))
     | id < 0 = Nothing
     | otherwise = Just rect
   where
@@ -211,7 +211,7 @@ renderHUD r (Just font) pj = do
     drawLine (startY + 2 * lineHeight) txtXp colorTexto
 
     -- ===========================================
-    -- 2. CONTROLES (MÁS ABAJO)
+    -- 2. CONTROLES
     -- ===========================================
 
     let controlsY = startY + (3 * lineHeight) + 20
@@ -298,7 +298,7 @@ renderEntity r texs ent cameraOffset = do
             SDL.textureAlphaMod tex SDL.$= 255
 
     -- =========================================================
-    -- 4. ESCUDO (Ajustado a la nueva posición)
+    -- 4. ESCUDO
     -- =========================================================
     when (isPlayerClass entClass' && not (entDead ent)) $ do
         case M.lookup "shield" texs of
@@ -385,7 +385,7 @@ renderEntity r texs ent cameraOffset = do
                                      Abajo     -> V2 0 60
                                      Derecha   -> V2 55 20
                                      Izquierda -> V2 (-55) 0
-                            
+
                             finalPos = centerPos + offsetDir
 
                             -- Rotamos el sprite para que apunte bien
@@ -479,7 +479,7 @@ render = do
             SDL.rendererDrawColor r SDL.$= V4 15 15 20 255
             SDL.clear r
 
-            -- 2. RENDERIZADO DE MAPA E ÍTEMS (LÓGICA UNIFICADA)
+            -- 2. RENDERIZADO DE MAPA E ÍTEMS
             case (M.lookup "dungeon" texs, M.lookup "items" texs) of
                 (Just texDungeon, Just texItems) -> do
 

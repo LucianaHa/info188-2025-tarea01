@@ -48,9 +48,8 @@ data Resources = Resources
     { rTextures   :: AssetManager
     , rFont       :: Maybe SDL.Font.Font
 
-    -- ESTRUCTURA FUSIONADA LIMPIA
-    , rMusic      :: Map Int Mixer.Music  -- Música por niveles (Tu aporte)
-    , rSfxStep    :: Maybe Mixer.Chunk    -- SFX Pasos (Equipo)
+    , rMusic      :: Map Int Mixer.Music  -- Música por niveles
+    , rSfxStep    :: Maybe Mixer.Chunk    -- SFX Pasos
     , rSfxDamage  :: Maybe Mixer.Chunk    -- SFX Daño
     , rSfxDeath   :: Maybe Mixer.Chunk    -- SFX Muerte
     , rSfxAttack  :: Maybe Mixer.Chunk    -- SFX Ataque

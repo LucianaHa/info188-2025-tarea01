@@ -467,13 +467,13 @@ actualizarEnemigos ticks = do
                         when (dano > 0) $ do
                              let res = resources stCurr
                              liftIO $ case rSfxDamage res of
-                                Just sfx -> Mixer.play sfx -- Corregido: Mixer.play
+                                Just sfx -> Mixer.play sfx
                                 Nothing -> return ()
 
                         if nuevaVidaPj == 0 then do
                             let res = resources stCurr
                             liftIO $ case rSfxDeath res of
-                                Just sfx -> Mixer.play sfx -- Corregido: Mixer.play
+                                Just sfx -> Mixer.play sfx
                                 Nothing -> return ()
                             modify $ \s -> s { player = pjCurr { entHp = 0, entDead = True }
                                              , gameMode = GameOver
@@ -639,7 +639,7 @@ handlePlayingEvents events ticks = do
                 then do
                     if entHasKey pj
                     then do
-                            modify $ \s -> s { gameMode = GameWon } -- ¡GANASTE!
+                            modify $ \s -> s { gameMode = GameWon }
                             agregarLog "¡Has escapado de la mazmorra!"
                     else agregarLog "La puerta está cerrada. Necesitas la llave del jefe."
 
