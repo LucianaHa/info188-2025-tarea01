@@ -56,6 +56,7 @@ data Resources = Resources
     , rSfxAttack  :: Maybe Mixer.Chunk    -- SFX Ataque
     , rSfxMiss    :: Maybe Mixer.Chunk    -- SFX Fallo
     , rSfxPotion  :: Maybe Mixer.Chunk    -- SFX Poción
+    , rSfxCow     :: Maybe Mixer.Chunk    -- SFX Vaca
     }
 
 data Entity = Entity {

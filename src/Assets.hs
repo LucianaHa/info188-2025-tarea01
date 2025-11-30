@@ -77,6 +77,7 @@ cargarRecursos r = do
     sfxAtaque <- loadChunkSafe "Music/human_atk_sword.ogg"
     sfxFallo  <- loadChunkSafe "Music/sword_miss.ogg"
     sfxPocion <- loadChunkSafe "Music/human_charge.ogg"
+    sfxVaca    <- loadChunkSafe "Music/Cow.ogg"
 
     return $ Resources
         { rTextures = fromList
@@ -105,4 +106,5 @@ cargarRecursos r = do
         , rSfxAttack  = sfxAtaque
         , rSfxMiss    = sfxFallo
         , rSfxPotion  = sfxPocion
+        , rSfxCow     = sfxVaca
         }
