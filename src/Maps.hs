@@ -2,15 +2,15 @@ module Maps (
     tileSuelo,
     tilePared,
     tileAgua,
-    tileEscalera, -- Exportar esto
-    mapaNivel1,   -- Exportar esto
-    mapaNivel2,   -- Exportar esto
+    tileEscalera,
+    mapaNivel1,
+    mapaNivel2,
     getFloorPositions,
     replaceInRow,
     replaceRows,
-    tileEscalera, 
-    mapaNivel1,   
-    mapaNivel2    
+    tileEscalera,
+    mapaNivel1,
+    mapaNivel2
 ) where
 
 import Linear (V2(..))
@@ -83,33 +83,33 @@ mapaSuelo =
     in pasilloCD2
 
 mapaNivel1 :: [[Int]]
-mapaNivel1 = 
-    let base = mapaSuelo -- Tu laberinto actual
+mapaNivel1 =
+    let base = mapaSuelo
         mapaConEscalera = replaceRows 10 11 (replaceInRow 10 11 tileEscalera) base
     in mapaConEscalera
 
 mapaNivel2 :: [[Int]]
-mapaNivel2 = 
-    let base = replicate mapDim (replicate mapDim tilePared) -- Todo Pared
+mapaNivel2 =
+    let base = replicate mapDim (replicate mapDim tilePared)
 
-        -- 1. EL PASILLO ANCHO (Ancho 7)
+        -- 1. Pasillo ancho (Ancho 7)
         -- Va desde arriba (Y=5) hasta la sala del jefe (Y=50)
         -- X: del 27 al 34 (34 - 27 = 7 bloques de ancho)
         pasillo = replaceRows 5 50 (replaceInRow 27 34 tileSuelo) base
 
-        -- 2. SALA 1 (10x10) - Inicio
+        -- 2. Sala 1 (10x10) - Inicio
         -- Y: 10 a 20, X: 25 a 35
         sala1 = replaceRows 10 20 (replaceInRow 25 35 tileSuelo) pasillo
 
-        -- 3. SALA 2 (10x10) - Medio
+        -- 3. Sala 2 (10x10) - Medio
         -- Y: 25 a 35, X: 25 a 35
         sala2 = replaceRows 25 35 (replaceInRow 25 35 tileSuelo) sala1
 
-        -- 4. SALA 3 (10x10) - Antesala
+        -- 4. Sala 3 (10x10) - Antesala
         -- Y: 40 a 50, X: 25 a 35
         sala3 = replaceRows 40 50 (replaceInRow 25 35 tileSuelo) sala2
 
-        -- 5. SALA DEL JEFE (12x12) - Final
+        -- 5. Sala del jefe (12x12) - Final
         -- Y: 50 a 62 (Hasta el fondo), X: 24 a 36
         salaJefe = replaceRows 50 62 (replaceInRow 24 36 tileSuelo) sala3
 
@@ -122,7 +122,6 @@ mapaObjetos = replicate mapDim (replicate mapDim (-1))
 -- 4. UTILIDADES DEL MAPA (NUEVO)
 -- ==========================================
 
--- Lista de todas las coordenadas de casillas de suelo (en PIXELES)
 getFloorPositions :: [[Int]] -> [V2 CInt]
 getFloorPositions matriz =
     [ V2 (fromIntegral x * screenSize) (fromIntegral y * screenSize)

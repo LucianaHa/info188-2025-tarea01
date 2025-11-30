@@ -47,7 +47,6 @@ isPlayerClass Bruja   = True
 isPlayerClass Chamana = True
 isPlayerClass _       = False
 
--- FUNCIÓN DE RECORTE:
 getItemTileRect :: Int -> Maybe (SDL.Rectangle CInt)
 getItemTileRect id
     | id < 0 = Nothing
@@ -126,9 +125,8 @@ queryTextureSafe :: SDL.Texture -> Game (CInt, CInt)
 queryTextureSafe tex = do
     info <- SDL.queryTexture tex
     return (SDL.textureWidth info, SDL.textureHeight info)
--- (Tus imports y funciones auxiliares siguen igual...)
 
--- Función para dibujar texto simple
+
 renderText :: SDL.Renderer -> SDL.Font.Font -> Int -> Int -> String -> V4 Word8 -> Game ()
 renderText r font x y content color = do
     let text = T.pack content
@@ -141,30 +139,29 @@ renderText r font x y content color = do
     SDL.destroyTexture texture
     SDL.freeSurface surface
 
--- DIBUJAR ESTADÍSTICAS (HUD)
 
 renderMissionMessage :: SDL.Renderer -> Maybe SDL.Font.Font -> Word32 -> Word32 -> Game ()
 renderMissionMessage r Nothing _ _ = return ()
 renderMissionMessage r (Just font) currentTicks startTicks = do
     -- Calculamos si han pasado menos de 5 segundos (5000 ms)
     let timePassed = currentTicks - startTicks
-    
+
     when (timePassed < 5000) $ do
         let message = "Sube Nivel y Derrota a la Vaca"
         let color = V4 255 255 0 255 -- Amarillo
         let shadow = V4 0 0 0 255    -- Negro
 
-        -- Renderizamos el texto (usando tu librería de font)
+        -- Renderizamos el texto
         textSurface <- SDL.Font.blended font color (T.pack message)
         textDims <- SDL.surfaceDimensions textSurface
         textTex <- SDL.createTextureFromSurface r textSurface
-        
+
         -- Sombra
         shadowSurface <- SDL.Font.blended font shadow (T.pack message)
         shadowTex <- SDL.createTextureFromSurface r shadowSurface
 
         let (V2 w h) = textDims
-        
+
         -- Centrar en pantalla (1280x720)
         let centerX = (1280 - fromIntegral w) `div` 2
         let centerY = (720 - fromIntegral h) `div` 2 - 100 -- Un poco más arriba del centro
@@ -190,7 +187,7 @@ renderHUD r (Just font) pj = do
     let startX = 20
     let startY = 20
     let lineHeight = 20
-    
+
     -- Colores
     let colorTexto = V4 255 255 255 255   -- Blanco
     let colorSombra = V4 0 0 0 255        -- Negro (sombra)
@@ -202,7 +199,7 @@ renderHUD r (Just font) pj = do
     let txtHp  = "VIDA: " ++ show (entHp pj) ++ " / " ++ show (entMaxHp pj)
     let txtLvl = "NIVEL: " ++ show (entLevel pj)
     let txtXp  = "XP: " ++ show (entXp pj) ++ " / " ++ show (entNextLevel pj)
-    
+
     -- Helper para dibujar línea con sombra
     let drawLine y text color = do
             renderText r font (startX + 2) (y + 2) text colorSombra -- Sombra
@@ -215,9 +212,8 @@ renderHUD r (Just font) pj = do
     -- ===========================================
     -- 2. CONTROLES (MÁS ABAJO)
     -- ===========================================
-    
-    -- Dejamos un espacio (gap) de 40px después de las stats
-    let controlsY = startY + (3 * lineHeight) + 20 
+
+    let controlsY = startY + (3 * lineHeight) + 20
 
     -- Dibujamos los textos de ayuda
     drawLine (controlsY + 0 * lineHeight) "CONTROLES:" colorControls
@@ -236,30 +232,30 @@ renderEntity r texs ent cameraOffset = do
     -- Definimos (Tamaño, Ajuste X, Ajuste Y) para cada clase.
     -- Ajuste X > 0: Mueve a la derecha.
     -- Ajuste Y > 0: Mueve hacia abajo.
-    
+
     let (renderSize, nudgeX, nudgeY) = case entClass' of
             -- RATA: Pequeña (48px), centrada
-            Rata    -> (48,  8, 0)  
-            
+            Rata    -> (48,  8, 0)
+
             -- VACA: Gigante (128px), centrada
-            Vaca    -> (128, 0, 0)  
-            
-            -- HEROE: Estándar (96px). 
+            Vaca    -> (128, 0, 0)
+
+            -- HEROE: Estándar (96px).
             -- Si se ve muy a la izquierda, SUBE el valor de nudgeX (ej. 10, 16)
-            Hero    -> (96,  0, 0) 
-            
+            Hero    -> (96,  0, 0)
+
             -- Otros (Usan valores por defecto)
             _       -> (96,  0, 0)
 
     -- =========================================================
     -- 2. CALCULAR POSICIÓN
     -- =========================================================
-    
+
     -- Centrado Automático Matemático
     let autoOffsetX = (screenSize - renderSize) `div` 2
     let autoOffsetY = screenSize - renderSize
 
-    -- Posición Final = Base + Automático + TU AJUSTE MANUAL
+    -- Posición Final = Base + Automático + ajuste manual
     let finalX = autoOffsetX + nudgeX
     let finalY = autoOffsetY + nudgeY
 
@@ -283,16 +279,16 @@ renderEntity r texs ent cameraOffset = do
     case M.lookup texKey texs of
         Nothing -> return ()
         Just tex -> do
-            
-            let cellSize = case texKey of 
-                    "cow" -> 48 
-                    "rat" -> 16 
-                    _     -> 32 
+
+            let cellSize = case texKey of
+                    "cow" -> 48
+                    "rat" -> 16
+                    _     -> 32
 
             let row = case entDir ent of Abajo -> 0; Izquierda -> 1; Arriba -> 2; Derecha -> 3
             let col = fromIntegral (entAnimFrame ent)
             let srcRect = SDL.Rectangle (P (V2 (col * cellSize) (row * cellSize))) (V2 cellSize cellSize)
-            
+
             SDL.textureBlendMode tex SDL.$= SDL.BlendAlphaBlend
             let alphaValue = if entInvisible ent then 128 else 255
             SDL.textureAlphaMod tex SDL.$= (fromIntegral alphaValue)
@@ -311,9 +307,9 @@ renderEntity r texs ent cameraOffset = do
                 let shieldSize = V2 shieldW shieldH
                 let angle = case entDir ent of Arriba -> 0; Derecha -> 90; Abajo -> 180; Izquierda -> 270
 
-                -- Usamos heroDrawPos (que ya tiene tu ajuste manual) para que el escudo siga al cuerpo
+                -- Se uso heroDrawPos para que el escudo siga al cuerpo
                 -- Centramos el escudo (100x80) sobre el render del personaje (renderSize)
-                
+
                 let shieldCenterX = (renderSize - shieldW) `div` 2
                 let shieldCenterY = (renderSize - shieldH) `div` 2
                 let verticalShift = case entDir ent of
@@ -334,27 +330,27 @@ renderEntity r texs ent cameraOffset = do
     when (entHp ent < entMaxHp ent || entAggro ent) $ do
         -- La barra flota un poco más arriba de la cabeza
         let barPos = heroDrawPos + V2 0 (-10)
-        
+
         -- Si es rata, barra pequeña (32), si no, normal (64)
         let barWidth = if entClass' == Rata then 32 else 64
-        
+
         -- Centrar la barra respecto al sprite
         let barOffsetX = (renderSize - barWidth) `div` 2
-        
+
         drawHealthBarCustom r (barPos + V2 barOffsetX 0) barWidth (entHp ent) (entMaxHp ent)
 
     let atkType = entAttackType ent
-    
+
     when (atkType /= NoAttack) $ do
-        case M.lookup "fx_blade" texs of 
-            Nothing -> return () -- Si no carga la imagen, no hace nada
+        case M.lookup "fx_blade" texs of
+            Nothing -> return ()
             Just texBlade -> do
-                
+
                 -- 1. FRAME DE ANIMACIÓN
                 -- Usamos el frame del personaje para sincronizar (0, 1, 2)
                 let frame = fromIntegral (entAnimFrame ent) `mod` 3
                 let frameW = 88 -- Ancho de cada cuadro en la hoja (264 / 3)
-                
+
                 -- 2. SELECCIONAR FILA (Y) SEGÚN TIPO DE ATAQUE
                 -- Ajusta estos valores 'srcY' si ves que recorta mal la hoja
                 let (srcY, frameH, isSpin) = case atkType of
@@ -366,24 +362,23 @@ renderEntity r texs ent cameraOffset = do
 
                 -- 3. CALCULAR POSICIÓN Y ROTACIÓN
                 let (destRect, rotAngle) = if isSpin
-                    then 
+                    then
                         -- CASO W: GIRO (Centrado en el personaje)
                         let size = 180 -- Tamaño grande para el área
-                            -- Centramos respecto al dibujo del héroe
                             offset = (entityRenderSize - size) `div` 2
                             pos = heroDrawPos + V2 offset offset
                         in (SDL.Rectangle (P pos) (V2 size size), 0)
-                    else 
+                    else
                         -- CASO Q: GOLPE (Frente al personaje)
                         let sizeW = 96
                             sizeH = 70
-                            
+
                             -- Calculamos el centro del cuerpo
                             centerX = (entityRenderSize - sizeW) `div` 2
                             centerY = (entityRenderSize - sizeH) `div` 2
                             centerPos = heroDrawPos + V2 centerX centerY
 
-                            -- Empujamos el efecto hacia donde mira
+                            -- Se empuja el efecto hacia donde mira
                             offsetDir = case entDir ent of
                                      Arriba    -> V2 0 (-60)
                                      Abajo     -> V2 0 60
@@ -391,18 +386,18 @@ renderEntity r texs ent cameraOffset = do
                                      Izquierda -> V2 (-55) 0
                             
                             finalPos = centerPos + offsetDir
-                            
+
                             -- Rotamos el sprite para que apunte bien
                             ang = case entDir ent of
                                     Arriba -> 270; Derecha -> 0; Abajo -> 90; Izquierda -> 180
                         in (SDL.Rectangle (P finalPos) (V2 sizeW sizeH), ang)
 
                 -- 4. DIBUJAR CON BRILLO (Additive blending)
-                SDL.textureBlendMode texBlade SDL.$= SDL.BlendAdditive 
+                SDL.textureBlendMode texBlade SDL.$= SDL.BlendAdditive
                 SDL.copyEx r texBlade (Just srcRect) (Just destRect) rotAngle Nothing (SDL.V2 False False)
                 SDL.textureBlendMode texBlade SDL.$= SDL.BlendAlphaBlend
 
-        
+
 drawHealthBarCustom :: SDL.Renderer -> V2 CInt -> CInt -> Int -> Int -> Game ()
 drawHealthBarCustom r (V2 x y) width hp maxHp = do
     let height = 6
@@ -417,21 +412,21 @@ drawHealthBarCustom r (V2 x y) width hp maxHp = do
     SDL.fillRect r (Just barFg)
 
 drawTitleScreen :: SDL.Renderer -> Maybe SDL.Font.Font -> M.Map String SDL.Texture -> Entity -> Game ()
-drawTitleScreen r Nothing texs _ = return () -- Si falla la fuente
+drawTitleScreen r Nothing texs _ = return ()
 drawTitleScreen r (Just font) texs pj = do
     -- Fondo
     case M.lookup "background" texs of
         Just bgTex -> SDL.copy r bgTex Nothing Nothing
         Nothing -> SDL.clear r
-    
+
     -- Texto de Selección
     let claseNombre = show (entClass pj)
     let infoTxt = "Clase actual: " ++ claseNombre ++ " (Usa 1-4 para cambiar)"
     let color = V4 0 0 0 0
-    
+
     -- Renderizamos texto en la parte superior
     renderText r font 50 30 infoTxt color
-    
+
     -- Mostrar stats breves
     let statsTxt = "HP: " ++ show (entMaxHp pj) ++ " | ATK: " ++ show (entMinAtk pj) ++ "-" ++ show (entMaxAtk pj) ++ " | SPD: " ++ show (entSpeed pj)
     renderText r font 50 50 statsTxt color
@@ -442,10 +437,9 @@ drawGameOverScreen r texs = do
         Just bgTex -> SDL.copy r bgTex Nothing Nothing
         Nothing -> do
             SDL.rendererDrawColor r SDL.$= V4 50 0 0 255 -- Fondo rojo oscuro si falla
-            SDL.clear r -- <--- AQUÍ HABÍA BASURA, AHORA ESTÁ LIMPIO
+            SDL.clear r
     return ()
 
-    -- src/Render.hs (Reemplazar la función render completa)
 
 render :: Game ()
 render = do
@@ -480,18 +474,16 @@ render = do
 
                     renderLayer r texDungeon (currentMap st) cameraOffset
 
-                    -- INYECCIÓN DE TU LÓGICA DE RENDERIZADO DE ÍTEMS
                     forM_ (mapItems st) $ \item -> do
                         unless (itemObtained item) $ do
-                            renderItem r texItems item cameraOffset -- Usa texItems
+                            renderItem r texItems item cameraOffset
 
-                    -- Las entidades usan texDungeon (asumiendo que los héroes están allí)
                     forM_ (enemies st) $ \e -> renderEntity r texs e cameraOffset
                     renderEntity r texs (player st) cameraOffset
 
                 _ -> return ()
             renderHUD r (rFont res) (player st)
-            renderLog r (rFont res) (gameLog st) -- Lógica de Log
+            renderLog r (rFont res) (gameLog st)
             renderMissionMessage r (rFont res) currentTicks (gameStartTime st)
             SDL.present r
 
@@ -521,7 +513,7 @@ renderItem r tex item cameraOffset = do
     let tileID = itemTileID (itemType item)
     case getItemTileRect tileID of
         Nothing -> return ()
-        Just srcRect -> do  
+        Just srcRect -> do
             let screenPos = itemPos item ^-^ cameraOffset
             let destRect = SDL.Rectangle (P screenPos) (V2 screenSize screenSize)
             SDL.copy r tex (Just srcRect) (Just destRect)
