@@ -115,9 +115,9 @@ mapaNivel2 =
 
         -- 5. Sala del jefe (12x12) - Final
         -- Y: 50 a 62 (Hasta el fondo), X: 24 a 36
-        salaJefeBase = replaceRows 50 62 (replaceInRow 24 36 tileSuelo) sala3
+        salaJefeBase = replaceRows 50 60 (replaceInRow 24 36 tileSuelo) sala3
 
-        salaConPuerta = replaceRows 61 62 (replaceInRow 30 31 tilePuerta) salaJefeBase
+        salaConPuerta = replaceRows 59 60 (replaceInRow 30 31 tilePuerta) salaJefeBase
 
     in salaConPuerta
 

@@ -441,11 +441,23 @@ drawGameOverScreen r texs = do
             SDL.clear r
     return ()
 
-
-drawWinScreen :: SDL.Renderer -> Game ()
-drawWinScreen r = do
-    SDL.rendererDrawColor r SDL.$= V4 0 200 0 255 -- Fondo Verde Victoria
+drawWinScreen :: SDL.Renderer -> Maybe SDL.Font.Font -> Game ()
+drawWinScreen r Nothing = do
+    SDL.rendererDrawColor r SDL.$= V4 0 200 0 255
     SDL.clear r
+drawWinScreen r (Just font) = do
+    SDL.rendererDrawColor r SDL.$= V4 0 200 0 255
+    SDL.clear r
+
+    let titulo = "¡HAS GANADO!"
+    let subtitulo = "Escapaste de la mazmorra"
+    let colorBlanco = V4 255 255 255 255
+    let colorSombra = V4 0 0 0 100
+
+    renderText r font 435 305 titulo colorSombra
+    renderText r font 430 300 titulo colorBlanco
+
+    renderText r font 400 350 subtitulo colorBlanco
 
 
 render :: Game ()
@@ -463,7 +475,7 @@ render = do
             SDL.present r
 
         GameWon -> do
-            drawWinScreen r
+            drawWinScreen r (rFont res)
             SDL.present r
 
         GameOver -> do
