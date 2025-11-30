@@ -668,7 +668,7 @@ handleEvents events ticks = do
         TitleScreen -> handleTitleEvents events ticks
         Playing     -> handlePlayingEvents events ticks
         GameOver    -> return ()
-        GameWon     -> return ()
+        GameWon     -> do
             let quit = any isQuitEvent events
             when quit $ modify $ \s -> s { shouldExit = True }
 
