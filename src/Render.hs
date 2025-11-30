@@ -48,7 +48,6 @@ isPlayerClass Bruja   = True
 isPlayerClass Chamana = True
 isPlayerClass _       = False
 
--- FUNCIÓN DE RECORTE:
 getItemTileRect :: Int -> Maybe (SDL.Rectangle CInt)
 getItemTileRect id
     | id < 0 = Nothing
@@ -127,9 +126,8 @@ queryTextureSafe :: SDL.Texture -> Game (CInt, CInt)
 queryTextureSafe tex = do
     info <- SDL.queryTexture tex
     return (SDL.textureWidth info, SDL.textureHeight info)
--- (Tus imports y funciones auxiliares siguen igual...)
 
--- Función para dibujar texto simple
+
 renderText :: SDL.Renderer -> SDL.Font.Font -> Int -> Int -> String -> V4 Word8 -> Game ()
 renderText r font x y content color = do
     let text = T.pack content
@@ -142,7 +140,6 @@ renderText r font x y content color = do
     SDL.destroyTexture texture
     SDL.freeSurface surface
 
--- DIBUJAR ESTADÍSTICAS (HUD)
 
 renderMissionMessage :: SDL.Renderer -> Maybe SDL.Font.Font -> Word32 -> Word32 -> Game ()
 renderMissionMessage r Nothing _ _ = return ()
@@ -155,7 +152,7 @@ renderMissionMessage r (Just font) currentTicks startTicks = do
         let color = V4 255 255 0 255 -- Amarillo
         let shadow = V4 0 0 0 255    -- Negro
 
-        -- Renderizamos el texto (usando tu librería de font)
+        -- Renderizamos el texto
         textSurface <- SDL.Font.blended font color (T.pack message)
         textDims <- SDL.surfaceDimensions textSurface
         textTex <- SDL.createTextureFromSurface r textSurface
@@ -217,7 +214,6 @@ renderHUD r (Just font) pj = do
     -- 2. CONTROLES (MÁS ABAJO)
     -- ===========================================
 
-    -- Dejamos un espacio (gap) de 40px después de las stats
     let controlsY = startY + (3 * lineHeight) + 20
 
     -- Dibujamos los textos de ayuda
@@ -260,7 +256,7 @@ renderEntity r texs ent cameraOffset = do
     let autoOffsetX = (screenSize - renderSize) `div` 2
     let autoOffsetY = screenSize - renderSize
 
-    -- Posición Final = Base + Automático + TU AJUSTE MANUAL
+    -- Posición Final = Base + Automático + ajuste manual
     let finalX = autoOffsetX + nudgeX
     let finalY = autoOffsetY + nudgeY
 
@@ -312,7 +308,7 @@ renderEntity r texs ent cameraOffset = do
                 let shieldSize = V2 shieldW shieldH
                 let angle = case entDir ent of Arriba -> 0; Derecha -> 90; Abajo -> 180; Izquierda -> 270
 
-                -- Usamos heroDrawPos (que ya tiene tu ajuste manual) para que el escudo siga al cuerpo
+                -- Se uso heroDrawPos para que el escudo siga al cuerpo
                 -- Centramos el escudo (100x80) sobre el render del personaje (renderSize)
 
                 let shieldCenterX = (renderSize - shieldW) `div` 2
@@ -348,7 +344,7 @@ renderEntity r texs ent cameraOffset = do
 
     when (atkType /= NoAttack) $ do
         case M.lookup "fx_blade" texs of
-            Nothing -> return () -- Si no carga la imagen, no hace nada
+            Nothing -> return ()
             Just texBlade -> do
 
                 -- 1. FRAME DE ANIMACIÓN
@@ -370,7 +366,6 @@ renderEntity r texs ent cameraOffset = do
                     then
                         -- CASO W: GIRO (Centrado en el personaje)
                         let size = 180 -- Tamaño grande para el área
-                            -- Centramos respecto al dibujo del héroe
                             offset = (entityRenderSize - size) `div` 2
                             pos = heroDrawPos + V2 offset offset
                         in (SDL.Rectangle (P pos) (V2 size size), 0)
@@ -384,7 +379,7 @@ renderEntity r texs ent cameraOffset = do
                             centerY = (entityRenderSize - sizeH) `div` 2
                             centerPos = heroDrawPos + V2 centerX centerY
 
-                            -- Empujamos el efecto hacia donde mira
+                            -- Se empuja el efecto hacia donde mira
                             offsetDir = case entDir ent of
                                      Arriba    -> V2 0 (-40)
                                      Abajo     -> V2 0 40
@@ -418,7 +413,7 @@ drawHealthBarCustom r (V2 x y) width hp maxHp = do
     SDL.fillRect r (Just barFg)
 
 drawTitleScreen :: SDL.Renderer -> Maybe SDL.Font.Font -> M.Map String SDL.Texture -> Entity -> Game ()
-drawTitleScreen r Nothing texs _ = return () -- Si falla la fuente
+drawTitleScreen r Nothing texs _ = return ()
 drawTitleScreen r (Just font) texs pj = do
     -- Fondo
     case M.lookup "background" texs of
@@ -433,7 +428,6 @@ drawTitleScreen r (Just font) texs pj = do
     -- Renderizamos texto en la parte superior
     renderText r font 50 30 infoTxt color
 
-    -- EL ERROR ESTABA AQUÍ (había un O (V2 suelto)
     -- Mostrar stats breves
     let statsTxt = "HP: " ++ show (entMaxHp pj) ++ " | ATK: " ++ show (entMinAtk pj) ++ "-" ++ show (entMaxAtk pj) ++ " | SPD: " ++ show (entSpeed pj)
     renderText r font 50 50 statsTxt color
@@ -444,10 +438,9 @@ drawGameOverScreen r texs = do
         Just bgTex -> SDL.copy r bgTex Nothing Nothing
         Nothing -> do
             SDL.rendererDrawColor r SDL.$= V4 50 0 0 255 -- Fondo rojo oscuro si falla
-            SDL.clear r -- <--- AQUÍ HABÍA BASURA, AHORA ESTÁ LIMPIO
+            SDL.clear r
     return ()
 
-    -- src/Render.hs (Reemplazar la función render completa)
 
 drawWinScreen :: SDL.Renderer -> Game ()
 drawWinScreen r = do
@@ -492,18 +485,16 @@ render = do
 
                     renderLayer r texDungeon (currentMap st) cameraOffset
 
-                    -- INYECCIÓN DE TU LÓGICA DE RENDERIZADO DE ÍTEMS
                     forM_ (mapItems st) $ \item -> do
                         unless (itemObtained item) $ do
-                            renderItem r texItems item cameraOffset -- Usa texItems
+                            renderItem r texItems item cameraOffset
 
-                    -- Las entidades usan texDungeon (asumiendo que los héroes están allí)
                     forM_ (enemies st) $ \e -> renderEntity r texs e cameraOffset
                     renderEntity r texs (player st) cameraOffset
 
                 _ -> return ()
             renderHUD r (rFont res) (player st)
-            renderLog r (rFont res) (gameLog st) -- Lógica de Log
+            renderLog r (rFont res) (gameLog st)
             renderMissionMessage r (rFont res) currentTicks (gameStartTime st)
             SDL.present r
 

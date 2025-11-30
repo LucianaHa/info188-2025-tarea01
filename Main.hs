@@ -6,7 +6,7 @@ import qualified SDL
 import qualified SDL.Image
 import qualified SDL.Font
 import qualified SDL.Mixer as Mixer
-import qualified Data.Map as M 
+import qualified Data.Map as M
 import Linear (V2(..))
 import Control.Monad.State
 import Control.Monad (unless)
@@ -41,10 +41,10 @@ main = do
     SDL.Image.initialize [SDL.Image.InitPNG]
     SDL.Font.initialize
 
-    -- CONFIGURACIÓN DE AUDIO (Del equipo, es mejor)
+    -- CONFIGURACIÓN DE AUDIO
     let audioConfig = Mixer.Audio 48000 Mixer.FormatS16_Sys Mixer.Stereo
     Mixer.openAudio audioConfig 4096
-    
+
     _ <- Mixer.setChannels 32
 
     window <- SDL.createWindow "Haski RPG" SDL.defaultWindow {
@@ -54,14 +54,14 @@ main = do
 
     misRecursos <- cargarRecursos r
 
-    -- MÚSICA INICIAL (Tu lógica de niveles)
+    -- MÚSICA INICIAL
     case M.lookup 1 (rMusic misRecursos) of
-        Just musicaNivel1 -> Mixer.playMusic (-1) musicaNivel1 
+        Just musicaNivel1 -> Mixer.playMusic (-1) musicaNivel1
         Nothing -> putStrLn "Advertencia: No se encontró música para el Nivel 1"
 
     let startPos = V2 (54 * screenSize) (20 * screenSize)
     let jugador = createPlayer Hero startPos
-    
+
     let allFloorPositions = getFloorPositions mapaNivel1
     let itemsToSpawn = [ PotionFuerza, PotionFuerza
                         , PotionVelocidad, PotionVelocidad
@@ -72,7 +72,7 @@ main = do
 
     let estadoInicial = GameState {
         player      = jugador,
-        enemies     = generarEnemigos 1, -- Usamos tu generador
+        enemies     = generarEnemigos 1,
         mapItems    = randomItems,
         gameLog     = ["Bienvenido a la mazmorra."],
         resources   = misRecursos,
@@ -81,7 +81,7 @@ main = do
         gameMode    = TitleScreen,
         menuSelection = 0,
         gameStartTime = 0,
-        gameOverTimer = 0, 
+        gameOverTimer = 0,
         encounteredTypes = [],
         currentLevel = 1,
         currentMap = mapaNivel1
